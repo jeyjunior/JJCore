@@ -17,5 +17,13 @@ namespace JJCore.Domain.Extensao
             string json = File.ReadAllText(caminhoArquivo);
             return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
+
+        public static void SalvarArquivo<T>(T objeto, string caminhoArquivo)
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string json = JsonSerializer.Serialize(objeto, options);
+
+            File.WriteAllText(caminhoArquivo, json);
+        }
     }
 }

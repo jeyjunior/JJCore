@@ -23,13 +23,11 @@ namespace JJCore.Infra.Data.Factory
             {
                 eTipoBancoDados.SQLServer => new SqlConnection(connectionString),
                 eTipoBancoDados.SQLite => new SqliteConnection(connectionString),
-                // eTipoBancoDados.PostgreSQL => new NpgsqlConnection(connectionString),
                 _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
             };
 
             return connection;
         }
-
         public static IDbConnection CriarDoArquivo(string caminhoArquivo = "parametros.json")
         {
             var arquivo = JsonHelper.LerArquivo<ArquivoParametrosDto>(caminhoArquivo);
@@ -51,6 +49,40 @@ namespace JJCore.Infra.Data.Factory
             }
 
             return Criar(stringConexaoFinal, configAtiva.TipoBancoDados);
+        }
+        public static void GerarArquivoParametros(ArquivoParametrosDto parametros, string caminhoArquivo = "parametros.json")
+        {
+            if (parametros == null || !parametros.Conexoes.Any())
+                throw new ArgumentException("A lista de conexões fornecida está vazia ou nula.");
+
+            JsonHelper.SalvarArquivo(parametros, caminhoArquivo);
+        }
+        public static void GerarArquivoPadrao(string caminhoArquivo = "parametros.json")
+        {
+            var template = new ArquivoParametrosDto
+            {
+                Conexoes = new List<ParametroConexaoDto>
+                {
+                    new ParametroConexaoDto
+                    {
+                        NomeConexao = "Producao_SQLServer",
+                        Conexao = "Server=MEU_SERVIDOR;Database=MEU_BANCO;User Id=MEU_USUARIO;Password=MINHA_SENHA;TrustServerCertificate=True;",
+                        TipoBancoDados = eTipoBancoDados.SQLServer,
+                        Ativo = true,
+                        EhStringBase64 = false
+                    },
+                    new ParametroConexaoDto
+                    {
+                        NomeConexao = "Local_SQLite",
+                        Conexao = "Data Source=banco_local.db;",
+                        TipoBancoDados = eTipoBancoDados.SQLite,
+                        Ativo = false,
+                        EhStringBase64 = false
+                    }
+                }
+            };
+
+            JsonHelper.SalvarArquivo(template, caminhoArquivo);
         }
     }
 }
