@@ -1,9 +1,4 @@
-﻿using JJCore.Domain.Enumeradores;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using JJCore.Domain.Enumeradores;
 
 namespace JJCore.Infra.Data.Dicionario
 {
@@ -11,19 +6,17 @@ namespace JJCore.Infra.Data.Dicionario
     {
         public static string TraduzirQuery(string query, eTipoBancoDados tipoBanco)
         {
-            if (string.IsNullOrEmpty(query)) return query;
-
-            switch (tipoBanco)
+            if (string.IsNullOrEmpty(query))
             {
-                case eTipoBancoDados.PostgreSQL:
-                    return query.Replace("[", "\"").Replace("]", "\"");
-
-                case eTipoBancoDados.SQLServer:
-                    return query;
-
-                default:
-                    return query.Replace("[", "").Replace("]", "");
+                return query;
             }
+
+            return tipoBanco switch
+            {
+                eTipoBancoDados.SQLServer => query,
+                eTipoBancoDados.SQLite => query.Replace("[", "").Replace("]", ""),
+                _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
+            };
         }
     }
 }

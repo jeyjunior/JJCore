@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JJCore.Domain.Extensao
 {
     public static class ObjectExtension
     {
-        public static object ObterPropriedade(this object objeto, string nomePropriedade)
+        public static object? ObterPropriedade(this object? objeto, string nomePropriedade)
         {
             if (objeto == null || string.IsNullOrWhiteSpace(nomePropriedade))
             {
@@ -20,22 +15,10 @@ namespace JJCore.Domain.Extensao
             return objeto.GetType().GetProperty(nomePropriedade)?.GetValue(objeto);
         }
 
-        public static T ObterPropriedade<T>(this object objeto, string nomePropriedade, T valorPadrao = default(T))
+        public static T? ObterPropriedade<T>(this object? objeto, string nomePropriedade, T? valorPadrao = default)
         {
-            object obj = objeto.ObterPropriedade(nomePropriedade);
-            if (obj == null)
-            {
-                return valorPadrao;
-            }
-
-            try
-            {
-                return (T)Convert.ChangeType(obj, typeof(T));
-            }
-            catch
-            {
-                return valorPadrao;
-            }
+            object? obj = objeto.ObterPropriedade(nomePropriedade);
+            return obj.Converter(valorPadrao);
         }
 
         public static T ObterValorOuPadrao<T>(this object? valor, T padrao)
@@ -45,27 +28,19 @@ namespace JJCore.Domain.Extensao
                 return padrao;
             }
 
-            if (typeof(T) == typeof(string) && valor is string value && string.IsNullOrWhiteSpace(value) && padrao is string value2 && !string.IsNullOrWhiteSpace(value2))
+            if (typeof(T) == typeof(string) &&
+                valor is string texto &&
+                string.IsNullOrWhiteSpace(texto) &&
+                padrao is string textoPadrao &&
+                !string.IsNullOrWhiteSpace(textoPadrao))
             {
                 return padrao;
             }
 
-            try
-            {
-                if (valor is T result)
-                {
-                    return result;
-                }
-
-                return (T)Convert.ChangeType(valor, typeof(T), CultureInfo.InvariantCulture);
-            }
-            catch
-            {
-                return padrao;
-            }
+            return valor.Converter(padrao)!;
         }
 
-        public static T Converter<T>(this object valor, T padrao = default(T))
+        public static T? Converter<T>(this object? valor, T? padrao = default)
         {
             if (valor == null || valor == DBNull.Value)
             {
@@ -79,7 +54,19 @@ namespace JJCore.Domain.Extensao
                     return result;
                 }
 
-                return (T)Convert.ChangeType(valor, typeof(T), CultureInfo.InvariantCulture);
+                Type tipoDestino = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+
+                if (tipoDestino.IsEnum)
+                {
+                    return (T)Enum.Parse(tipoDestino, valor.ToString()!, true);
+                }
+
+                if (tipoDestino == typeof(Guid))
+                {
+                    return (T)(object)Guid.Parse(valor.ToString()!);
+                }
+
+                return (T)Convert.ChangeType(valor, tipoDestino, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -87,14 +74,14 @@ namespace JJCore.Domain.Extensao
             }
         }
 
-        public static bool DefinirValorParaPropriedade(this object objeto, string nomePropriedade, object valor)
+        public static bool DefinirValorParaPropriedade(this object? objeto, string nomePropriedade, object? valor)
         {
             if (objeto == null || string.IsNullOrWhiteSpace(nomePropriedade))
             {
                 return false;
             }
 
-            PropertyInfo property = objeto.GetType().GetProperty(nomePropriedade);
+            PropertyInfo? property = objeto.GetType().GetProperty(nomePropriedade);
             if (property == null || !property.CanWrite)
             {
                 return false;
@@ -102,14 +89,35 @@ namespace JJCore.Domain.Extensao
 
             try
             {
-                object value = Convert.ChangeType(valor, property.PropertyType);
-                property.SetValue(objeto, value);
+                Type tipoDestino = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                object? valorConvertido = ConverterParaTipo(valor, tipoDestino);
+                property.SetValue(objeto, valorConvertido);
                 return true;
             }
             catch
             {
                 return false;
             }
+        }
+
+        private static object? ConverterParaTipo(object? valor, Type tipoDestino)
+        {
+            if (valor == null || valor == DBNull.Value)
+            {
+                return null;
+            }
+
+            if (tipoDestino.IsEnum)
+            {
+                return Enum.Parse(tipoDestino, valor.ToString()!, true);
+            }
+
+            if (tipoDestino == typeof(Guid))
+            {
+                return Guid.Parse(valor.ToString()!);
+            }
+
+            return Convert.ChangeType(valor, tipoDestino, CultureInfo.InvariantCulture);
         }
     }
 }

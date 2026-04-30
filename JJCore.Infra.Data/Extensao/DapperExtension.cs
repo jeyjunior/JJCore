@@ -1,114 +1,110 @@
-﻿using JJCore.Domain.Atributos;
+using Dapper;
+using JJCore.Domain.Atributos;
 using JJCore.Domain.Enumeradores;
 using JJCore.Infra.Data.Dicionario;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
+using System.Data;
+using System.Reflection;
 
 namespace JJCore.Infra.Data.Extensao
 {
     public static class DapperExtension
     {
-        #region SELECT 
-        public static async Task<T?> ObterAsync<T>(this IDbConnection connection, object id)
+        public static async Task<T?> ObterAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
         {
-            var tipoEntidade = typeof(T);
+            ValidarBancoSuportado(connection);
 
+            var tipoEntidade = typeof(T);
             string nomeTabela = ObterNomeTabelaFormatado(tipoEntidade);
             string nomePK = PadronizarNome(ObterNomeChavePrimaria(tipoEntidade));
-
             string sql = $"SELECT {nomeTabela}.* FROM {nomeTabela} WHERE {nomePK} = @Id";
 
             sql = SQLTradutor.TraduzirQuery(sql, connection.IdentificarBanco());
 
-            return await connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id });
+            return await connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, transaction);
         }
 
-        public static async Task<T?> ObterAsync<T>(this IDbConnection connection, string condicao, object parametros = null)
+        public static async Task<T?> ObterAsync<T>(this IDbConnection connection, string condicao, object? parametros = null, IDbTransaction? transaction = null)
         {
-            var tipoEntidade = typeof(T);
-            string nomeTabela = ObterNomeTabelaFormatado(tipoEntidade);
+            ValidarBancoSuportado(connection);
 
             if (string.IsNullOrWhiteSpace(condicao))
+            {
                 throw new ArgumentException("Para buscar sem ID, a condição WHERE é obrigatória.", nameof(condicao));
+            }
 
+            string nomeTabela = ObterNomeTabelaFormatado(typeof(T));
             string sql = $"SELECT {nomeTabela}.* FROM {nomeTabela} WHERE {condicao}";
 
             sql = SQLTradutor.TraduzirQuery(sql, connection.IdentificarBanco());
 
-            return await connection.QuerySingleOrDefaultAsync<T>(sql, parametros);
+            return await connection.QuerySingleOrDefaultAsync<T>(sql, parametros, transaction);
         }
 
-        public static async Task<IEnumerable<T>> ObterListaAsync<T>(this IDbConnection connection, string condicao = "", object parametros = null)
+        public static async Task<IEnumerable<T>> ObterListaAsync<T>(this IDbConnection connection, string condicao = "", object? parametros = null, IDbTransaction? transaction = null)
         {
-            var tipoEntidade = typeof(T);
-            string nomeTabela = ObterNomeTabelaFormatado(tipoEntidade);
+            ValidarBancoSuportado(connection);
 
+            string nomeTabela = ObterNomeTabelaFormatado(typeof(T));
             string sql = $"SELECT {nomeTabela}.* FROM {nomeTabela}";
 
             if (!string.IsNullOrWhiteSpace(condicao))
+            {
                 sql += $" WHERE {condicao}";
+            }
 
             sql = SQLTradutor.TraduzirQuery(sql, connection.IdentificarBanco());
 
-            return await connection.QueryAsync<T>(sql, parametros);
+            return await connection.QueryAsync<T>(sql, parametros, transaction);
         }
-        #endregion
 
-        #region INSERT
-        public static async Task<int> AdicionarEmLoteAsync<T>(this IDbConnection connection, IEnumerable<T> entidades, IDbTransaction transaction = null)
+        public static async Task<int> AdicionarEmLoteAsync<T>(this IDbConnection connection, IEnumerable<T> entidades, IDbTransaction? transaction = null)
         {
-            if (entidades == null || !entidades.Any()) return 0;
+            ValidarBancoSuportado(connection);
+
+            var lista = entidades?.ToList();
+            if (lista == null || lista.Count == 0)
+            {
+                return 0;
+            }
 
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
-
             string tabela = ObterNomeTabelaFormatado(entidade);
-            var propriedades = ObterPropriedadesMapeaveis(entidade);
+            var propriedades = ObterPropriedadesMapeaveis(entidade).ToList();
 
-            var colunas = propriedades.Select(p => PadronizarNome(p.Name)).ToList();
-            var paramNames = propriedades.Select(p => "@" + p.Name).ToList();
+            ValidarPropriedadesMapeaveis(propriedades, entidade);
 
+            var colunas = propriedades.Select(p => PadronizarNome(p.Name));
+            var paramNames = propriedades.Select(p => "@" + p.Name);
             string sql = $"INSERT INTO {tabela} ({string.Join(", ", colunas)}) VALUES ({string.Join(", ", paramNames)})";
 
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
-            return await connection.ExecuteAsync(sql, entidades, transaction);
+            return await connection.ExecuteAsync(sql, lista, transaction);
         }
 
-        public static async Task<int> AdicionarAsync<T>(this IDbConnection connection, T entity, IDbTransaction transaction = null)
+        public static async Task<int> AdicionarAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
+            ValidarBancoSuportado(connection);
+            ArgumentNullException.ThrowIfNull(entity);
+
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
-
             string nomeTabela = ObterNomeTabelaFormatado(entidade);
-            string nomePkSemFormatacao = ObterNomeChavePrimaria(entidade);
-            string nomePkFormatado = PadronizarNome(nomePkSemFormatacao);
+            string nomePkFormatado = PadronizarNome(ObterNomeChavePrimaria(entidade));
+            var propriedades = ObterPropriedadesMapeaveis(entidade).ToList();
 
-            var propriedades = ObterPropriedadesMapeaveis(entidade);
+            ValidarPropriedadesMapeaveis(propriedades, entidade);
+
             var colunas = new List<string>();
             var paramNames = new List<string>();
             var parametros = new DynamicParameters();
 
             foreach (var propriedade in propriedades)
             {
-                var valor = propriedade.GetValue(entity);
-
-                if (propriedade.GetCustomAttribute<Obrigatorio>() != null && valor == null)
-                    throw new InvalidOperationException($"A propriedade {propriedade.Name} é obrigatória e não foi preenchida.");
-
-                if (propriedade.PropertyType == typeof(DateTime))
-                {
-                    if (valor == null || (DateTime)valor == DateTime.MinValue)
-                        valor = DateTime.UtcNow;
-                }
+                var valor = ObterValorTratado(entity, propriedade);
 
                 colunas.Add(PadronizarNome(propriedade.Name));
                 paramNames.Add("@" + propriedade.Name);
@@ -117,57 +113,53 @@ namespace JJCore.Infra.Data.Extensao
 
             string cols = string.Join(", ", colunas);
             string vals = string.Join(", ", paramNames);
-            string sql = "";
-
-            // O Switch fica aqui apenas por causa da forma como cada banco retorna o ID inserido
-            switch (tipoBanco)
+            string sql = tipoBanco switch
             {
-                case eTipoBancoDados.PostgreSQL:
-                    sql = $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}) RETURNING {nomePkFormatado};";
-                    break;
-                case eTipoBancoDados.SQLServer:
-                    sql = $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT CAST(SCOPE_IDENTITY() as int);";
-                    break;
-                default:
-                    sql = $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT last_insert_rowid();";
-                    break;
-            }
+                eTipoBancoDados.SQLServer => $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT CAST(SCOPE_IDENTITY() as int);",
+                eTipoBancoDados.SQLite => $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT last_insert_rowid();",
+                _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
+            };
 
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
             var result = await connection.ExecuteScalarAsync<int>(sql, parametros, transaction);
 
             if (result == 0)
+            {
                 throw new InvalidOperationException("Nenhuma linha foi inserida no banco de dados.");
+            }
 
             return result;
         }
-        #endregion
 
-        #region UPDATE
-        public static async Task<int> AtualizarAsync<T>(this IDbConnection connection, T entity, IDbTransaction transaction = null)
+        public static async Task<int> AtualizarAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
+            ValidarBancoSuportado(connection);
+            ArgumentNullException.ThrowIfNull(entity);
+
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
-
             string nomeTabela = ObterNomeTabelaFormatado(entidade);
             string nomePkSemFormatacao = ObterNomeChavePrimaria(entidade);
             string nomePkFormatado = PadronizarNome(nomePkSemFormatacao);
+            var propriedades = ObterPropriedadesMapeaveis(entidade).ToList();
 
-            var propriedades = ObterPropriedadesMapeaveis(entidade);
-            var colunasUpdate = new List<string>();
+            ValidarPropriedadesMapeaveis(propriedades, entidade);
+
             var parametros = new DynamicParameters();
-
             var propPk = entidade.GetProperty(nomePkSemFormatacao);
             var valorPk = propPk?.GetValue(entity);
 
+            if (valorPk == null)
+            {
+                throw new InvalidOperationException($"A chave primária {nomePkSemFormatacao} não foi preenchida.");
+            }
+
+            var colunasUpdate = new List<string>();
+
             foreach (var propriedade in propriedades)
             {
-                var valor = propriedade.GetValue(entity);
-
-                if (propriedade.GetCustomAttribute<Obrigatorio>() != null && valor == null)
-                    throw new InvalidOperationException($"A propriedade {propriedade.Name} é obrigatória.");
-
+                var valor = ObterValorTratado(entity, propriedade);
                 colunasUpdate.Add($"{PadronizarNome(propriedade.Name)} = @{propriedade.Name}");
                 parametros.Add(propriedade.Name, valor);
             }
@@ -175,76 +167,78 @@ namespace JJCore.Infra.Data.Extensao
             parametros.Add("Id", valorPk);
 
             string sql = $"UPDATE {nomeTabela} SET {string.Join(", ", colunasUpdate)} WHERE {nomePkFormatado} = @Id";
-
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
             var rowsAffected = await connection.ExecuteAsync(sql, parametros, transaction);
 
             if (rowsAffected == 0)
+            {
                 throw new InvalidOperationException("Nenhuma linha foi atualizada. Verifique se o ID existe.");
+            }
 
             return rowsAffected;
         }
-        #endregion
 
-        #region DELETE
-        public static async Task<int> DeletarAsync<T>(this IDbConnection connection, object id, IDbTransaction transaction = null)
+        public static async Task<int> DeletarAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
         {
+            ValidarBancoSuportado(connection);
+
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
-
             string nomeTabela = ObterNomeTabelaFormatado(entidade);
             string nomePkFormatado = PadronizarNome(ObterNomeChavePrimaria(entidade));
-
             string sql = $"DELETE FROM {nomeTabela} WHERE {nomePkFormatado} = @Id";
+
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
             int linhas = await connection.ExecuteAsync(sql, new { Id = id }, transaction);
 
             if (linhas == 0)
+            {
                 throw new InvalidOperationException("O registro a ser excluído não existe.");
+            }
 
             return linhas;
         }
 
-        public static async Task<int> DeletarTudoAsync<T>(this IDbConnection connection, IDbTransaction transaction = null)
+        public static async Task<int> DeletarTudoAsync<T>(this IDbConnection connection, IDbTransaction? transaction = null)
         {
+            ValidarBancoSuportado(connection);
+
             var tipoBanco = connection.IdentificarBanco();
             string nomeTabela = ObterNomeTabelaFormatado(typeof(T));
-
             string sql = $"DELETE FROM {nomeTabela}";
+
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
             return await connection.ExecuteAsync(sql, transaction: transaction);
         }
-        #endregion 
 
-        #region GENÉRICA
-        public static async Task<int> ExecutarQueryAsync(this IDbConnection connection, string query, object parametros = null, IDbTransaction transaction = null)
+        public static async Task<int> ExecutarQueryAsync(this IDbConnection connection, string query, object? parametros = null, IDbTransaction? transaction = null)
         {
-            if (string.IsNullOrWhiteSpace(query))
-                throw new ArgumentException("A query fornecida não pode ser nula ou vazia.");
+            ValidarBancoSuportado(connection);
 
-            // A query genérica também entra na dança da tradução!
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                throw new ArgumentException("A query fornecida não pode ser nula ou vazia.", nameof(query));
+            }
+
             query = SQLTradutor.TraduzirQuery(query, connection.IdentificarBanco());
 
             return await connection.ExecuteAsync(query, parametros, transaction);
         }
-        #endregion
 
-        #region MÉTODOS CUSTOMIZADOS
-        public static async Task<long> ObterProximoCodigoAsync<T>(this IDbConnection connection, long usuarioID, long valorInicial = 1, IDbTransaction transaction = null)
+        public static async Task<long> ObterProximoCodigoAsync<T>(this IDbConnection connection, long usuarioID, long valorInicial = 1, IDbTransaction? transaction = null)
         {
-            var tipoBanco = connection.IdentificarBanco();
-            var tipoEntidade = typeof(T);
+            ValidarBancoSuportado(connection);
 
-            string tabela = ObterNomeTabelaFormatado(tipoEntidade);
+            var tipoBanco = connection.IdentificarBanco();
+            string tabela = ObterNomeTabelaFormatado(typeof(T));
             string colCodigo = PadronizarNome("Codigo");
             string colFK = PadronizarNome("FK_Usuario");
-
             long valorBase = valorInicial - 1;
-
             string sql = $"SELECT COALESCE(MAX({colCodigo}), @ValorBase) + 1 FROM {tabela} WHERE {colFK} = @UsuarioID";
+
             sql = SQLTradutor.TraduzirQuery(sql, tipoBanco);
 
             var result = await connection.ExecuteScalarAsync<object>(sql, new { UsuarioID = usuarioID, ValorBase = valorBase }, transaction);
@@ -252,43 +246,79 @@ namespace JJCore.Infra.Data.Extensao
             return Convert.ToInt64(result);
         }
 
-        public static async Task<T?> ObterPorCodigoAsync<T>(this IDbConnection connection, long codigo, long usuarioID, IDbTransaction transaction = null)
+        public static async Task<T?> ObterPorCodigoAsync<T>(this IDbConnection connection, long codigo, long usuarioID, IDbTransaction? transaction = null)
         {
             string colCodigo = PadronizarNome("Codigo");
-            string colFK_Usuario = PadronizarNome("FK_Usuario");
+            string colFKUsuario = PadronizarNome("FK_Usuario");
+            string condicao = $"{colCodigo} = @Codigo AND {colFKUsuario} = @UsuarioID";
 
-            string condicao = $"{colCodigo} = @Codigo AND {colFK_Usuario} = @UsuarioID";
-
-            return await connection.ObterAsync<T>(condicao, new { Codigo = codigo, UsuarioID = usuarioID });
+            return await connection.ObterAsync<T>(condicao, new { Codigo = codigo, UsuarioID = usuarioID }, transaction);
         }
 
-        public static async Task<IEnumerable<T>> ObterListaPorUsuarioAsync<T>(this IDbConnection connection, long usuarioID)
+        public static async Task<IEnumerable<T>> ObterListaPorUsuarioAsync<T>(this IDbConnection connection, long usuarioID, IDbTransaction? transaction = null)
         {
-            string colFK_Usuario = PadronizarNome("FK_Usuario");
+            string colFKUsuario = PadronizarNome("FK_Usuario");
+            string condicao = $"{colFKUsuario} = @UsuarioID";
 
-            string condicao = $"{colFK_Usuario} = @UsuarioID";
-
-            return await connection.ObterListaAsync<T>(condicao, new { UsuarioID = usuarioID });
+            return await connection.ObterListaAsync<T>(condicao, new { UsuarioID = usuarioID }, transaction);
         }
-        #endregion
 
-        #region MÉTODOS AUXILIARES (HELPERS)
         public static eTipoBancoDados IdentificarBanco(this IDbConnection connection)
         {
-            if (connection is SqlConnection) 
-                return eTipoBancoDados.SQLServer;
+            return connection switch
+            {
+                SqlConnection => eTipoBancoDados.SQLServer,
+                SqliteConnection => eTipoBancoDados.SQLite,
+                _ => eTipoBancoDados.Nenhum
+            };
+        }
 
-            if (connection is SqliteConnection)
-                return eTipoBancoDados.SQLite;
+        private static void ValidarBancoSuportado(IDbConnection connection)
+        {
+            if (connection.IdentificarBanco() == eTipoBancoDados.Nenhum)
+            {
+                throw new NotSupportedException($"O tipo de conexão {connection.GetType().Name} não é suportado.");
+            }
+        }
 
-            return eTipoBancoDados.Nenhum;
+        private static object? ObterValorTratado<T>(T entity, PropertyInfo propriedade)
+        {
+            var valor = propriedade.GetValue(entity);
+
+            if (propriedade.GetCustomAttribute<Obrigatorio>() != null && valor == null)
+            {
+                throw new InvalidOperationException($"A propriedade {propriedade.Name} é obrigatória e não foi preenchida.");
+            }
+
+            if (propriedade.PropertyType == typeof(DateTime) && (valor == null || (DateTime)valor == DateTime.MinValue))
+            {
+                return DateTime.UtcNow;
+            }
+
+            return valor;
         }
 
         private static string PadronizarNome(string valor)
         {
-            // Garante que o valor não seja padronizado duas vezes caso já tenha colchetes
-            if (valor.StartsWith("[") && valor.EndsWith("]")) return valor;
-            return $"[{valor}]";
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                throw new ArgumentException("O nome informado não pode ser vazio.", nameof(valor));
+            }
+
+            var partes = valor.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return string.Join(".", partes.Select(PadronizarParteNome));
+        }
+
+        private static string PadronizarParteNome(string valor)
+        {
+            var nome = valor.Trim('[', ']');
+
+            if (nome.Length == 0 || nome.Any(c => !char.IsLetterOrDigit(c) && c != '_'))
+            {
+                throw new ArgumentException($"O nome '{valor}' contém caracteres inválidos.");
+            }
+
+            return $"[{nome}]";
         }
 
         private static string ObterNomeChavePrimaria(Type tipo)
@@ -297,43 +327,49 @@ namespace JJCore.Infra.Data.Extensao
             var propriedadeChave = propriedades.FirstOrDefault(p => p.GetCustomAttribute<ChavePrimaria>() != null);
 
             if (propriedadeChave != null)
-                return propriedadeChave.Name; // Retorna o nome puro
+            {
+                return propriedadeChave.Name;
+            }
 
             var fallback = propriedades.FirstOrDefault(p =>
                 p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
                 p.Name.Equals($"PK_{tipo.Name}", StringComparison.OrdinalIgnoreCase));
 
             if (fallback != null)
-                return fallback.Name; // Retorna o nome puro
+            {
+                return fallback.Name;
+            }
 
-            throw new InvalidOperationException($"Chave primária não encontrada em {tipo.Name}");
+            throw new InvalidOperationException($"Chave primária não encontrada em {tipo.Name}.");
         }
 
         private static string ObterNomeTabelaFormatado(Type tipo)
         {
-            string nomeTabela;
             var atributoEntidade = tipo.GetCustomAttribute<EntidadeAttribute>();
-
-            if (atributoEntidade != null && !string.IsNullOrEmpty(atributoEntidade.NomeTabela))
-                nomeTabela = atributoEntidade.NomeTabela;
-            else
-                nomeTabela = tipo.Name;
+            string nomeTabela = !string.IsNullOrWhiteSpace(atributoEntidade?.NomeTabela)
+                ? atributoEntidade.NomeTabela
+                : tipo.Name;
 
             return PadronizarNome(nomeTabela);
         }
 
-        // NOVO MÉTODO: Extrai as propriedades válidas para Insert e Update (Limpa muito código!)
         private static IEnumerable<PropertyInfo> ObterPropriedadesMapeaveis(Type tipo)
         {
             var nomePk = ObterNomeChavePrimaria(tipo);
 
             return tipo.GetProperties()
                 .Where(p =>
-                    !p.Name.Equals(nomePk, StringComparison.OrdinalIgnoreCase) && // Pula a PK
-                    p.GetCustomAttribute<ChavePrimaria>() == null &&              // Pula atributos de PK explícitos
-                    p.GetCustomAttribute<Editavel>()?.HabilitarEdicao != false    // Pula os Editavel(false)
-                );
+                    !p.Name.Equals(nomePk, StringComparison.OrdinalIgnoreCase) &&
+                    p.GetCustomAttribute<ChavePrimaria>() == null &&
+                    p.GetCustomAttribute<Editavel>()?.HabilitarEdicao != false);
         }
-        #endregion
+
+        private static void ValidarPropriedadesMapeaveis(IReadOnlyCollection<PropertyInfo> propriedades, Type tipo)
+        {
+            if (propriedades.Count == 0)
+            {
+                throw new InvalidOperationException($"Nenhuma propriedade mapeável foi encontrada em {tipo.Name}.");
+            }
+        }
     }
 }

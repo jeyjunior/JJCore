@@ -1,14 +1,10 @@
-﻿using JJCore.Domain.Enumeradores;
+using JJCore.Domain.Enumeradores;
 using JJCore.Domain.Extensao;
 using JJCore.Domain.Modelos;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace JJCore.Infra.Data.Factory
 {
@@ -17,29 +13,40 @@ namespace JJCore.Infra.Data.Factory
         public static IDbConnection Criar(string connectionString, eTipoBancoDados tipoBanco)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
-                throw new ArgumentException("A string de conexão não pode ser vazia.");
+            {
+                throw new ArgumentException("A string de conexão não pode ser vazia.", nameof(connectionString));
+            }
 
-            IDbConnection connection = tipoBanco switch
+            return tipoBanco switch
             {
                 eTipoBancoDados.SQLServer => new SqlConnection(connectionString),
                 eTipoBancoDados.SQLite => new SqliteConnection(connectionString),
                 _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
             };
-
-            return connection;
         }
+
         public static IDbConnection CriarDoArquivo(string caminhoArquivo = "parametros.json")
         {
             var arquivo = JsonHelper.LerArquivo<ArquivoParametrosDto>(caminhoArquivo);
 
-            if (arquivo == null || !arquivo.Conexoes.Any())
+            if (arquivo == null || arquivo.Conexoes.Count == 0)
+            {
                 throw new InvalidOperationException("O arquivo de parâmetros está vazio ou inválido.");
+            }
 
-            var configAtiva = arquivo.Conexoes.FirstOrDefault(c => c.Ativo);
+            var conexoesAtivas = arquivo.Conexoes.Where(c => c.Ativo).ToList();
 
-            if (configAtiva == null)
+            if (conexoesAtivas.Count == 0)
+            {
                 throw new InvalidOperationException("Nenhuma conexão ativa foi encontrada no arquivo de parâmetros.");
+            }
 
+            if (conexoesAtivas.Count > 1)
+            {
+                throw new InvalidOperationException("Mais de uma conexão ativa foi encontrada no arquivo de parâmetros.");
+            }
+
+            var configAtiva = conexoesAtivas[0];
             string stringConexaoFinal = configAtiva.Conexao;
 
             if (configAtiva.EhStringBase64)
@@ -50,19 +57,23 @@ namespace JJCore.Infra.Data.Factory
 
             return Criar(stringConexaoFinal, configAtiva.TipoBancoDados);
         }
+
         public static void GerarArquivoParametros(ArquivoParametrosDto parametros, string caminhoArquivo = "parametros.json")
         {
-            if (parametros == null || !parametros.Conexoes.Any())
-                throw new ArgumentException("A lista de conexões fornecida está vazia ou nula.");
+            if (parametros == null || parametros.Conexoes.Count == 0)
+            {
+                throw new ArgumentException("A lista de conexões fornecida está vazia ou nula.", nameof(parametros));
+            }
 
             JsonHelper.SalvarArquivo(parametros, caminhoArquivo);
         }
+
         public static void GerarArquivoPadrao(string caminhoArquivo = "parametros.json")
         {
             var template = new ArquivoParametrosDto
             {
-                Conexoes = new List<ParametroConexaoDto>
-                {
+                Conexoes =
+                [
                     new ParametroConexaoDto
                     {
                         NomeConexao = "Producao_SQLServer",
@@ -79,7 +90,7 @@ namespace JJCore.Infra.Data.Factory
                         Ativo = false,
                         EhStringBase64 = false
                     }
-                }
+                ]
             };
 
             JsonHelper.SalvarArquivo(template, caminhoArquivo);

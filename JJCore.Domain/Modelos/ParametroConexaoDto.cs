@@ -1,9 +1,4 @@
-﻿using JJCore.Domain.Enumeradores;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using JJCore.Domain.Enumeradores;
 
 namespace JJCore.Domain.Modelos
 {
@@ -17,6 +12,6 @@ namespace JJCore.Domain.Modelos
     }
     public class ArquivoParametrosDto
     {
-        public List<ParametroConexaoDto> Conexoes { get; set; } = new();
+        public List<ParametroConexaoDto> Conexoes { get; set; } = [];
     }
 }

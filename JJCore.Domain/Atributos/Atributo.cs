@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace JJCore.Domain.Atributos
 {
     [AttributeUsage(AttributeTargets.Property)]
@@ -14,9 +8,9 @@ namespace JJCore.Domain.Atributos
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public class EntidadeAttribute : Attribute
     {
-        public string NomeTabela { get; }
+        public string? NomeTabela { get; }
 
-        public EntidadeAttribute(string nomeTabela = null)
+        public EntidadeAttribute(string? nomeTabela = null)
         {
             NomeTabela = nomeTabela;
         }
@@ -25,7 +19,8 @@ namespace JJCore.Domain.Atributos
     [AttributeUsage(AttributeTargets.Property)]
     public class Editavel : Attribute
     {
-        public bool HabilitarEdicao { get; private set; }
+        public bool HabilitarEdicao { get; }
+
         public Editavel(bool valor)
         {
             HabilitarEdicao = valor;
@@ -35,7 +30,8 @@ namespace JJCore.Domain.Atributos
     [AttributeUsage(AttributeTargets.Property)]
     public class TamanhoString : Attribute
     {
-        public int Tamanho { get; private set; }
+        public int Tamanho { get; }
+
         public TamanhoString(int tamanho)
         {
             Tamanho = tamanho;
@@ -45,8 +41,9 @@ namespace JJCore.Domain.Atributos
     [AttributeUsage(AttributeTargets.Property)]
     public class TamanhoDecimal : Attribute
     {
-        public int Tamanho { get; private set; }
-        public int Decimais { get; private set; }
+        public int Tamanho { get; }
+        public int Decimais { get; }
+
         public TamanhoDecimal(int tamanho, int decimais)
         {
             Tamanho = tamanho;
@@ -54,10 +51,11 @@ namespace JJCore.Domain.Atributos
         }
     }
 
+    [AttributeUsage(AttributeTargets.Property)]
     public class Relacionamento : Attribute
     {
-        public string Tabela { get; private set; }
-        public string ChavePrimaria { get; private set; }
+        public string Tabela { get; }
+        public string ChavePrimaria { get; }
 
         public Relacionamento(string tabela, string chavePrimaria = "Id")
         {
