@@ -14,17 +14,19 @@ namespace JJCore.Domain.Extensao
                 return false;
             }
 
-            if (texto.Length < tamanhoMinimo || texto.Length > tamanhoMaximo)
+            string textoValidado = texto!;
+
+            if (textoValidado.Length < tamanhoMinimo || textoValidado.Length > tamanhoMaximo)
             {
                 return false;
             }
 
-            if (!RegexNomeSeguro.IsMatch(texto))
+            if (!RegexNomeSeguro.IsMatch(textoValidado))
             {
                 return false;
             }
 
-            string upper = texto.ToUpperInvariant();
+            string upper = textoValidado.ToUpperInvariant();
             return !upper.Contains("DROP TABLE") &&
                    !upper.Contains("DELETE FROM") &&
                    !upper.Contains("<SCRIPT>");

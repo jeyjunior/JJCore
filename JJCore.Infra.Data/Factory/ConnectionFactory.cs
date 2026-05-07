@@ -3,6 +3,7 @@ using JJCore.Domain.Extensao;
 using JJCore.Domain.Modelos;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
+using Npgsql;
 using System.Data;
 using System.Text;
 
@@ -21,6 +22,7 @@ namespace JJCore.Infra.Data.Factory
             {
                 eTipoBancoDados.SQLServer => new SqlConnection(connectionString),
                 eTipoBancoDados.SQLite => new SqliteConnection(connectionString),
+                eTipoBancoDados.PostgreSQL => new NpgsqlConnection(connectionString),
                 _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
             };
         }
@@ -72,8 +74,8 @@ namespace JJCore.Infra.Data.Factory
         {
             var template = new ArquivoParametrosDto
             {
-                Conexoes =
-                [
+                Conexoes = new List<ParametroConexaoDto>
+                {
                     new ParametroConexaoDto
                     {
                         NomeConexao = "Producao_SQLServer",
@@ -89,8 +91,16 @@ namespace JJCore.Infra.Data.Factory
                         TipoBancoDados = eTipoBancoDados.SQLite,
                         Ativo = false,
                         EhStringBase64 = false
+                    },
+                    new ParametroConexaoDto
+                    {
+                        NomeConexao = "Supabase_PostgreSQL",
+                        Conexao = "Host=MEU_HOST_SUPABASE;Port=5432;Database=postgres;Username=postgres;Password=MINHA_SENHA;SSL Mode=Require;Trust Server Certificate=true;",
+                        TipoBancoDados = eTipoBancoDados.PostgreSQL,
+                        Ativo = false,
+                        EhStringBase64 = false
                     }
-                ]
+                }
             };
 
             JsonHelper.SalvarArquivo(template, caminhoArquivo);

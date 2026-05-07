@@ -12,6 +12,6 @@ namespace JJCore.Domain.Modelos
     }
     public class ArquivoParametrosDto
     {
-        public List<ParametroConexaoDto> Conexoes { get; set; } = [];
+        public List<ParametroConexaoDto> Conexoes { get; set; } = new List<ParametroConexaoDto>();
     }
 }

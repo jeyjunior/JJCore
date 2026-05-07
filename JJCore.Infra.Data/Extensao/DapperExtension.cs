@@ -4,6 +4,7 @@ using JJCore.Domain.Enumeradores;
 using JJCore.Infra.Data.Dicionario;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
+using Npgsql;
 using System.Data;
 using System.Reflection;
 
@@ -88,7 +89,8 @@ namespace JJCore.Infra.Data.Extensao
         public static async Task<int> AdicionarAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
             ValidarBancoSuportado(connection);
-            ArgumentNullException.ThrowIfNull(entity);
+            if (entity == null) 
+                throw new ArgumentNullException(nameof(entity));
 
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
@@ -117,6 +119,7 @@ namespace JJCore.Infra.Data.Extensao
             {
                 eTipoBancoDados.SQLServer => $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT CAST(SCOPE_IDENTITY() as int);",
                 eTipoBancoDados.SQLite => $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}); SELECT last_insert_rowid();",
+                eTipoBancoDados.PostgreSQL => $"INSERT INTO {nomeTabela} ({cols}) VALUES ({vals}) RETURNING {nomePkFormatado};",
                 _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
             };
 
@@ -135,7 +138,8 @@ namespace JJCore.Infra.Data.Extensao
         public static async Task<int> AtualizarAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
             ValidarBancoSuportado(connection);
-            ArgumentNullException.ThrowIfNull(entity);
+            if (entity == null) 
+                throw new ArgumentNullException(nameof(entity));
 
             var tipoBanco = connection.IdentificarBanco();
             var entidade = typeof(T);
@@ -269,6 +273,7 @@ namespace JJCore.Infra.Data.Extensao
             {
                 SqlConnection => eTipoBancoDados.SQLServer,
                 SqliteConnection => eTipoBancoDados.SQLite,
+                NpgsqlConnection => eTipoBancoDados.PostgreSQL,
                 _ => eTipoBancoDados.Nenhum
             };
         }
@@ -305,7 +310,7 @@ namespace JJCore.Infra.Data.Extensao
                 throw new ArgumentException("O nome informado não pode ser vazio.", nameof(valor));
             }
 
-            var partes = valor.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var partes = valor.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim());
             return string.Join(".", partes.Select(PadronizarParteNome));
         }
 
@@ -346,11 +351,14 @@ namespace JJCore.Infra.Data.Extensao
         private static string ObterNomeTabelaFormatado(Type tipo)
         {
             var atributoEntidade = tipo.GetCustomAttribute<EntidadeAttribute>();
-            string nomeTabela = !string.IsNullOrWhiteSpace(atributoEntidade?.NomeTabela)
-                ? atributoEntidade.NomeTabela
-                : tipo.Name;
+            string? nomeTabela = atributoEntidade?.NomeTabela;
 
-            return PadronizarNome(nomeTabela);
+            if (string.IsNullOrWhiteSpace(nomeTabela))
+            {
+                nomeTabela = tipo.Name;
+            }
+
+            return PadronizarNome(nomeTabela!);
         }
 
         private static IEnumerable<PropertyInfo> ObterPropriedadesMapeaveis(Type tipo)

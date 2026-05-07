@@ -15,6 +15,7 @@ namespace JJCore.Infra.Data.Dicionario
             {
                 eTipoBancoDados.SQLServer => query,
                 eTipoBancoDados.SQLite => query.Replace("[", "").Replace("]", ""),
+                eTipoBancoDados.PostgreSQL => query.Replace("[", "\"").Replace("]", "\""),
                 _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
             };
         }
