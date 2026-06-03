@@ -12,10 +12,21 @@ using System.Reflection;
 
 namespace JJCore.Infra.Data.Extensions
 {
+    /// <summary>
+    /// Provides generic Dapper-based CRUD extensions for supported JJCore database connections.
+    /// </summary>
     public static class DapperExtensions
     {
         private static readonly ConcurrentDictionary<Type, EntityMapping> Mappings = new();
 
+        /// <summary>
+        /// Gets one mapped entity by its primary key value.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public static async Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -31,6 +42,15 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, transaction);
         }
 
+        /// <summary>
+        /// Gets one mapped entity using a custom WHERE condition.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public static async Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -50,6 +70,15 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.QuerySingleOrDefaultAsync<T>(sql, parameters, transaction);
         }
 
+        /// <summary>
+        /// Gets mapped entities using an optional WHERE condition.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The matching entities.</returns>
         public static async Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition = "", object? parameters = null, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -69,6 +98,14 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.QueryAsync<T>(sql, parameters, transaction);
         }
 
+        /// <summary>
+        /// Inserts multiple mapped entities using one generated INSERT statement.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="entities">The entities to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public static async Task<int> AddBatchAsync<T>(this IDbConnection connection, IEnumerable<T> entities, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -95,6 +132,14 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.ExecuteAsync(sql, parameters, transaction);
         }
 
+        /// <summary>
+        /// Inserts one mapped entity and returns the generated primary key as an integer.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The generated primary key converted to int.</returns>
         public static async Task<int> AddAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
             object? result = await connection.AddReturningAsync(entity, transaction);
@@ -109,6 +154,14 @@ namespace JJCore.Infra.Data.Extensions
             }
         }
 
+        /// <summary>
+        /// Inserts one mapped entity and returns the generated primary key without forcing an integer conversion.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The generated primary key value.</returns>
         public static async Task<object?> AddReturningAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -149,6 +202,14 @@ namespace JJCore.Infra.Data.Extensions
             return result;
         }
 
+        /// <summary>
+        /// Updates one mapped entity using its primary key value.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="entity">The entity to update.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public static async Task<int> UpdateAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -190,6 +251,14 @@ namespace JJCore.Infra.Data.Extensions
             return rowsAffected;
         }
 
+        /// <summary>
+        /// Deletes one mapped entity by primary key value.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public static async Task<int> DeleteAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -212,6 +281,13 @@ namespace JJCore.Infra.Data.Extensions
             return rowsAffected;
         }
 
+        /// <summary>
+        /// Deletes all rows from the mapped table.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public static async Task<int> DeleteAllAsync<T>(this IDbConnection connection, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -226,6 +302,14 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.ExecuteAsync(sql, transaction: transaction);
         }
 
+        /// <summary>
+        /// Executes a custom SQL command with optional parameters.
+        /// </summary>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="query">The SQL command to execute.</param>
+        /// <param name="parameters">The command parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public static async Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters = null, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -240,6 +324,15 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.ExecuteAsync(query, parameters, transaction);
         }
 
+        /// <summary>
+        /// Gets the next sequential code for a user-owned mapped entity.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="userId">The user identifier used to scope the sequence.</param>
+        /// <param name="initialValue">The first value to use when no rows exist.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The next available code.</returns>
         public static async Task<long> GetNextCodeAsync<T>(this IDbConnection connection, long userId, long initialValue = 1, IDbTransaction? transaction = null)
         {
             EnsureSupportedDatabase(connection);
@@ -261,6 +354,15 @@ namespace JJCore.Infra.Data.Extensions
             return Convert.ToInt64(result, CultureInfo.InvariantCulture);
         }
 
+        /// <summary>
+        /// Gets one user-owned mapped entity by its per-user code.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="code">The per-user code value.</param>
+        /// <param name="userId">The user identifier.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public static async Task<T?> GetByCodeAsync<T>(this IDbConnection connection, long code, long userId, IDbTransaction? transaction = null)
         {
             var mapping = GetMapping(typeof(T));
@@ -273,6 +375,14 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.GetAsync<T>(condition, new { Code = code, UserId = userId }, transaction);
         }
 
+        /// <summary>
+        /// Gets all mapped entities owned by one user.
+        /// </summary>
+        /// <typeparam name="T">The mapped entity type.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="userId">The user identifier.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The matching entities.</returns>
         public static async Task<IEnumerable<T>> GetListByUserAsync<T>(this IDbConnection connection, long userId, IDbTransaction? transaction = null)
         {
             var mapping = GetMapping(typeof(T));
@@ -283,6 +393,11 @@ namespace JJCore.Infra.Data.Extensions
             return await connection.GetListAsync<T>(condition, new { UserId = userId }, transaction);
         }
 
+        /// <summary>
+        /// Identifies the JJCore database provider represented by an open or closed connection instance.
+        /// </summary>
+        /// <param name="connection">The database connection.</param>
+        /// <returns>The matching database type, or <see cref="DatabaseType.None"/> when unsupported.</returns>
         public static DatabaseType IdentifyDatabase(this IDbConnection connection)
         {
             return connection switch

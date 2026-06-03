@@ -9,8 +9,17 @@ using System.Text;
 
 namespace JJCore.Infra.Data.Factory
 {
+    /// <summary>
+    /// Creates database connections supported by JJCore.
+    /// </summary>
     public static class ConnectionFactory
     {
+        /// <summary>
+        /// Creates a database connection for the selected provider.
+        /// </summary>
+        /// <param name="connectionString">The database connection string.</param>
+        /// <param name="databaseType">The database provider type.</param>
+        /// <returns>A closed database connection instance.</returns>
         public static IDbConnection Create(string connectionString, DatabaseType databaseType)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
@@ -27,6 +36,11 @@ namespace JJCore.Infra.Data.Factory
             };
         }
 
+        /// <summary>
+        /// Creates a database connection from a JJCore parameters JSON file.
+        /// </summary>
+        /// <param name="filePath">The parameters file path.</param>
+        /// <returns>A closed database connection instance for the active configuration.</returns>
         public static IDbConnection CreateFromFile(string filePath = "parameters.json")
         {
             var file = JsonHelper.ReadFile<ConnectionParametersFileDto>(filePath);
@@ -60,6 +74,11 @@ namespace JJCore.Infra.Data.Factory
             return Create(finalConnectionString, activeConfig.DatabaseType);
         }
 
+        /// <summary>
+        /// Saves a JJCore parameters file.
+        /// </summary>
+        /// <param name="parameters">The connection parameters to save.</param>
+        /// <param name="filePath">The destination file path.</param>
         public static void GenerateParametersFile(ConnectionParametersFileDto parameters, string filePath = "parameters.json")
         {
             if (parameters == null || parameters.Connections.Count == 0)
@@ -70,6 +89,10 @@ namespace JJCore.Infra.Data.Factory
             JsonHelper.SaveFile(parameters, filePath);
         }
 
+        /// <summary>
+        /// Generates a sample JJCore parameters file with SQL Server, SQLite, and PostgreSQL entries.
+        /// </summary>
+        /// <param name="filePath">The destination file path.</param>
         public static void GenerateDefaultFile(string filePath = "parameters.json")
         {
             var template = new ConnectionParametersFileDto

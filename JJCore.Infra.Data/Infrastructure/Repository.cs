@@ -5,85 +5,181 @@ using System.Data;
 
 namespace JJCore.Infra.Data.Infrastructure
 {
+    /// <summary>
+    /// Base repository implementation that delegates generic CRUD operations to JJCore Dapper extensions.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
     public abstract class Repository<TEntity> : IRepository<TEntity> where TEntity : class
     {
+        /// <summary>
+        /// Gets the unit of work used by this repository.
+        /// </summary>
         protected readonly IUnitOfWork UnitOfWork;
 
+        /// <summary>
+        /// Creates a repository using the provided unit of work.
+        /// </summary>
+        /// <param name="unitOfWork">The unit of work that owns the connection and transaction.</param>
         public Repository(IUnitOfWork unitOfWork)
         {
             UnitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         }
 
+        /// <summary>
+        /// Inserts one entity and returns the generated primary key as an integer.
+        /// </summary>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The generated primary key converted to int.</returns>
         public virtual async Task<int> AddAsync(TEntity entity, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.AddAsync(entity, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Inserts one entity and returns the generated primary key without forcing an integer conversion.
+        /// </summary>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The generated primary key value.</returns>
         public virtual async Task<object?> AddReturningAsync(TEntity entity, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.AddReturningAsync(entity, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Inserts multiple entities using one generated INSERT statement.
+        /// </summary>
+        /// <param name="entities">The entities to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> AddBatchAsync(IEnumerable<TEntity> entities, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.AddBatchAsync(entities, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Updates one entity using its mapped primary key.
+        /// </summary>
+        /// <param name="entity">The entity to update.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> UpdateAsync(TEntity entity, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.UpdateAsync(entity, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Deletes one entity by an integer primary key.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> DeleteAsync(int id, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Deletes one entity by a long primary key.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> DeleteAsync(long id, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Deletes all rows from the mapped table.
+        /// </summary>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> DeleteAllAsync(IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.DeleteAllAsync<TEntity>(transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Executes a custom SQL command with optional parameters.
+        /// </summary>
+        /// <param name="query">The SQL command to execute.</param>
+        /// <param name="parameters">The command parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
         public virtual async Task<int> ExecuteQueryAsync(string query, object? parameters = null, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.ExecuteQueryAsync(query, parameters, transaction ?? UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets one entity by its primary key value.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public virtual async Task<TEntity?> GetAsync(object id)
         {
             return await UnitOfWork.Connection.GetAsync<TEntity>(id, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public virtual async Task<TEntity?> GetAsync(string condition, object? parameters = null)
         {
             return await UnitOfWork.Connection.GetAsync<TEntity>(condition, parameters, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets a list of entities using an optional WHERE condition.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <returns>The matching entities.</returns>
         public virtual async Task<IEnumerable<TEntity>> GetListAsync(string condition = "", object? parameters = null)
         {
             return await UnitOfWork.Connection.GetListAsync<TEntity>(condition, parameters, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets the next sequential code for a user-owned entity.
+        /// </summary>
+        /// <param name="userId">The user identifier used to scope the sequence.</param>
+        /// <param name="initialValue">The first value to use when no rows exist.</param>
+        /// <returns>The next available code.</returns>
         public virtual async Task<long> GetNextCodeAsync(long userId, long initialValue = 1)
         {
             return await UnitOfWork.Connection.GetNextCodeAsync<TEntity>(userId, initialValue, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets all entities owned by one user.
+        /// </summary>
+        /// <param name="userId">The user identifier.</param>
+        /// <returns>The matching entities.</returns>
         public virtual async Task<IEnumerable<TEntity>> GetListByUserAsync(long userId)
         {
             return await UnitOfWork.Connection.GetListByUserAsync<TEntity>(userId, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets one user-owned entity by its per-user code.
+        /// </summary>
+        /// <param name="code">The per-user code value.</param>
+        /// <param name="userId">The user identifier.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
         public virtual async Task<TEntity?> GetByCodeAsync(long code, long userId)
         {
             return await UnitOfWork.Connection.GetByCodeAsync<TEntity>(code, userId, UnitOfWork.Transaction);
         }
 
+        /// <summary>
+        /// Gets the database provider currently used by the repository connection.
+        /// </summary>
         public DatabaseType ActiveDatabase => UnitOfWork.Connection.IdentifyDatabase();
     }
 }
