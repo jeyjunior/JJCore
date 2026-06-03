@@ -1,0 +1,33 @@
+JJCore Proprietary Non-Commercial License
+
+Copyright (c) 2026 José Junior. All rights reserved.
+
+This software, including its source code, compiled DLLs, NuGet packages,
+documentation, and related files, is owned by José Junior.
+
+Permission is granted to download, install, reference, and use this software
+only in personal, educational, evaluation, or internal projects.
+
+You may not, without prior written permission from the copyright holder:
+
+1. Sell, rent, lease, sublicense, or commercially exploit this software.
+2. Redistribute, republish, mirror, share, or make copies of this software for
+   third parties, except for technical copies strictly required to install and
+   use the package in an authorized project.
+3. Include this software in a product, service, package, library, template, or
+   repository intended for sale, resale, commercial distribution, or public
+   redistribution.
+4. Modify this software and distribute the modified version.
+5. Remove or alter copyright, license, ownership, or attribution notices.
+6. Claim ownership or authorship of this software.
+
+Commercial use, redistribution, sublicensing, or any use not expressly allowed
+by this license requires prior written authorization from José Junior.
+
+This software is provided "as is", without warranties of any kind, express or
+implied, including but not limited to warranties of merchantability, fitness for
+a particular purpose, and non-infringement. In no event shall the copyright
+holder be liable for any claim, damages, or other liability arising from the
+use of this software.
+
+This license is not an open-source license.

@@ -1,68 +1,139 @@
 # JJCore
 
-Biblioteca .NET 8 com recursos simples para conexão e operações de dados usando Dapper.
+Simple .NET library for database connections and CRUD operations with Dapper.
 
-## Projetos
+## Projects
 
-- `JJCore.Domain`: atributos, enums, DTOs, mensagens e extensões gerais.
-- `JJCore.Infra.Data`: factory de conexão, unit of work, repositório base e extensões Dapper.
+- `JJCore.Domain`: contracts, mapping attributes, DTOs, messages, and general utility extensions.
+- `JJCore.Infra.Data`: connection factory, unit of work, base repository, SQL translator, and Dapper extensions.
 
-## Bancos suportados
+## Supported Databases
 
 - SQL Server (`Microsoft.Data.SqlClient`)
 - SQLite (`Microsoft.Data.Sqlite`)
 - PostgreSQL/Supabase (`Npgsql`)
 
-## Exemplo de entidade
+## Entity Example
 
 ```csharp
-using JJCore.Domain.Atributos;
+using JJCore.Domain.Attributes;
 
-[Entidade("Clientes")]
-public class Cliente
+[Entity("Customers")]
+public class Customer
 {
-    [ChavePrimaria]
+    [PrimaryKey]
     public int Id { get; set; }
 
-    [Obrigatorio, Coluna("nome")]
-    public string Nome { get; set; } = string.Empty;
+    [RequiredField, Column("name")]
+    public string Name { get; set; } = string.Empty;
 
-    [NaoMapear]
-    public string? CampoCalculado { get; set; }
+    [UserId, Column("user_id")]
+    public long UserId { get; set; }
+
+    [UserCode, Column("code")]
+    public long Code { get; set; }
+
+    [NotMapped]
+    public string? CalculatedField { get; set; }
 }
 ```
 
-Use `[Coluna("nome_da_coluna")]` quando o nome da propriedade C# for diferente do nome da coluna no banco. Use `[NaoMapear]` para propriedades que não existem na tabela.
+Use `[Column("column_name")]` when the C# property name is different from the database column name. Use `[NotMapped]` for properties that do not exist in the table.
 
-## Exemplo de conexão
+## Connection Example
 
 ```csharp
-using JJCore.Domain.Enumeradores;
+using JJCore.Domain.Enums;
 using JJCore.Infra.Data.Data;
 using JJCore.Infra.Data.Factory;
 
-using var connection = ConnectionFactory.Criar("Data Source=app.db;", eTipoBancoDados.SQLite);
+using var connection = ConnectionFactory.Create("Data Source=app.db;", DatabaseType.SQLite);
 using var unitOfWork = new UnitOfWork(connection);
 ```
 
-## Exemplo de conexão PostgreSQL/Supabase
+## PostgreSQL/Supabase Example
 
 ```csharp
-using JJCore.Domain.Enumeradores;
+using JJCore.Domain.Enums;
 using JJCore.Infra.Data.Data;
 using JJCore.Infra.Data.Factory;
 
-string connectionString = "Host=MEU_HOST_SUPABASE;Port=5432;Database=postgres;Username=postgres;Password=MINHA_SENHA;SSL Mode=Require;Trust Server Certificate=true;";
+string connectionString = "Host=MY_SUPABASE_HOST;Port=5432;Database=postgres;Username=postgres;Password=MY_PASSWORD;SSL Mode=Require;Trust Server Certificate=true;";
 
-using var connection = ConnectionFactory.Criar(connectionString, eTipoBancoDados.PostgreSQL);
+using var connection = ConnectionFactory.Create(connectionString, DatabaseType.PostgreSQL);
 using var unitOfWork = new UnitOfWork(connection);
 ```
 
-## Arquivo de parâmetros
+## Repository Example
 
 ```csharp
-ConnectionFactory.GerarArquivoPadrao();
-using var connection = ConnectionFactory.CriarDoArquivo("parametros.json");
+using JJCore.Domain.Interfaces.Repository;
+using JJCore.Infra.Data.Infrastructure;
+
+public class CustomerRepository : Repository<Customer>
+{
+    public CustomerRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+    {
+    }
+}
 ```
 
-O arquivo deve ter apenas uma conexão ativa.
+```csharp
+Customer? customer = await repository.GetAsync(1);
+IEnumerable<Customer> customers = await repository.GetListAsync();
+
+int newId = await repository.AddAsync(new Customer
+{
+    Name = "Test Customer",
+    UserId = 1,
+    Code = 1
+});
+```
+
+## Parameters File
+
+```csharp
+ConnectionFactory.GenerateDefaultFile();
+using var connection = ConnectionFactory.CreateFromFile("parameters.json");
+```
+
+Example:
+
+```json
+{
+  "Connections": [
+    {
+      "ConnectionName": "Local_SQLite",
+      "ConnectionString": "Data Source=app.db;",
+      "DatabaseType": 1,
+      "IsActive": true,
+      "IsBase64String": false
+    }
+  ]
+}
+```
+
+The file must contain exactly one active connection.
+
+## Transactions
+
+```csharp
+unitOfWork.BeginTransaction();
+
+try
+{
+    await customerRepository.AddAsync(customer);
+    await orderRepository.AddAsync(order);
+
+    unitOfWork.Commit();
+}
+catch
+{
+    unitOfWork.Rollback();
+    throw;
+}
+```
+
+## License
+
+JJCore is distributed under a custom proprietary non-commercial license. Personal, educational, evaluation, and internal use is allowed. Commercial use, redistribution, sublicensing, resale, or publishing modified copies requires prior written permission from the copyright holder.

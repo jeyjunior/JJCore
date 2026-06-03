@@ -4,7 +4,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <PackageId>JJCore.Infra.Data</PackageId>
     <Title>JJCore.Infra.Data</Title>
-    <Description>Infraestrutura simples de dados com Dapper, Unit of Work, Repository e conexões para SQL Server, SQLite e PostgreSQL/Supabase.</Description>
+    <Description>Simple data infrastructure with Dapper, Unit of Work, Repository, and connections for SQL Server, SQLite, and PostgreSQL/Supabase.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

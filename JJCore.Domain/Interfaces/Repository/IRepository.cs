@@ -1,24 +1,24 @@
-using JJCore.Domain.Enumeradores;
+using JJCore.Domain.Enums;
 using System.Data;
 
 namespace JJCore.Domain.Interfaces.Repository
 {
     public interface IRepository<TEntity> where TEntity : class
     {
-        Task<TEntity?> ObterAsync(object id);
-        Task<TEntity?> ObterAsync(string condicao, object? parametros = null);
-        Task<IEnumerable<TEntity>> ObterListaAsync(string condicao = "", object? parametros = null);
-        Task<int> AdicionarEmLoteAsync(IEnumerable<TEntity> entidades, IDbTransaction? transaction = null);
-        Task<int> AdicionarAsync(TEntity entity, IDbTransaction? transaction = null);
-        Task<object?> AdicionarRetornandoAsync(TEntity entity, IDbTransaction? transaction = null);
-        Task<int> AtualizarAsync(TEntity entity, IDbTransaction? transaction = null);
-        Task<int> DeletarAsync(int id, IDbTransaction? transaction = null);
-        Task<int> DeletarAsync(long id, IDbTransaction? transaction = null);
-        Task<int> DeletarTudoAsync(IDbTransaction? transaction = null);
-        Task<int> ExecutarQueryAsync(string query, object? parametros = null, IDbTransaction? transaction = null);
-        Task<long> ObterProximoCodigoAsync(long usuarioID, long valorInicial = 1);
-        Task<IEnumerable<TEntity>> ObterListaPorUsuarioAsync(long usuarioID);
-        Task<TEntity?> ObterPorCodigoAsync(long codigo, long usuarioID);
-        eTipoBancoDados BancoDadosAtivo { get; }
+        Task<TEntity?> GetAsync(object id);
+        Task<TEntity?> GetAsync(string condition, object? parameters = null);
+        Task<IEnumerable<TEntity>> GetListAsync(string condition = "", object? parameters = null);
+        Task<int> AddBatchAsync(IEnumerable<TEntity> entities, IDbTransaction? transaction = null);
+        Task<int> AddAsync(TEntity entity, IDbTransaction? transaction = null);
+        Task<object?> AddReturningAsync(TEntity entity, IDbTransaction? transaction = null);
+        Task<int> UpdateAsync(TEntity entity, IDbTransaction? transaction = null);
+        Task<int> DeleteAsync(int id, IDbTransaction? transaction = null);
+        Task<int> DeleteAsync(long id, IDbTransaction? transaction = null);
+        Task<int> DeleteAllAsync(IDbTransaction? transaction = null);
+        Task<int> ExecuteQueryAsync(string query, object? parameters = null, IDbTransaction? transaction = null);
+        Task<long> GetNextCodeAsync(long userId, long initialValue = 1);
+        Task<IEnumerable<TEntity>> GetListByUserAsync(long userId);
+        Task<TEntity?> GetByCodeAsync(long code, long userId);
+        DatabaseType ActiveDatabase { get; }
     }
 }

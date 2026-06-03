@@ -26,7 +26,7 @@ namespace JJCore.Infra.Data.Data
         {
             if (_transaction != null)
             {
-                throw new InvalidOperationException("Já existe uma transação aberta.");
+                throw new InvalidOperationException("There is already an open transaction.");
             }
 
             _transaction = _connection.BeginTransaction();
@@ -36,7 +36,7 @@ namespace JJCore.Infra.Data.Data
         {
             if (_transaction == null)
             {
-                throw new InvalidOperationException("Não existe uma transação aberta para confirmar.");
+                throw new InvalidOperationException("There is no open transaction to commit.");
             }
 
             try

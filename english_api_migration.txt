@@ -1,0 +1,77 @@
+JJCORE 1.0.0 - ENGLISH API MIGRATION
+
+Context
+This version standardizes the public JJCore API in American English before NuGet publication. The change intentionally breaks compatibility with the previous Portuguese API names.
+
+Main Changes
+
+1. Namespaces
+- JJCore.Domain.Atributos -> JJCore.Domain.Attributes
+- JJCore.Domain.Enumeradores -> JJCore.Domain.Enums
+- JJCore.Domain.Extensao -> JJCore.Domain.Extensions
+- JJCore.Domain.Modelos -> JJCore.Domain.Models
+- JJCore.Domain.Mensagens -> JJCore.Domain.Messages
+- JJCore.Infra.Data.Extensao -> JJCore.Infra.Data.Extensions
+- JJCore.Infra.Data.Dicionario -> JJCore.Infra.Data.Translators
+- JJCore.Infra.Data.InfraData -> JJCore.Infra.Data.Infrastructure
+
+2. Attributes
+- ChavePrimaria -> PrimaryKeyAttribute
+- EntidadeAttribute -> EntityAttribute
+- Coluna -> ColumnAttribute
+- NaoMapear -> NotMappedAttribute
+- CodigoUsuario -> UserCodeAttribute
+- UserIdAttribute was added for user-owned entities
+- Editavel -> EditableAttribute
+- Obrigatorio -> RequiredFieldAttribute
+- TamanhoString -> StringSizeAttribute
+- TamanhoDecimal -> DecimalPrecisionAttribute
+- Relacionamento -> RelationshipAttribute
+- CodigoGlyph -> GlyphCodeAttribute
+- Fonte -> FontFamilyAttribute
+
+3. Enums and DTOs
+- eTipoBancoDados -> DatabaseType
+- eFormatacaoTexto -> TextFormat
+- ParametroConexaoDto -> ConnectionParameterDto
+- ArquivoParametrosDto -> ConnectionParametersFileDto
+
+4. Repository and Dapper methods
+- ObterAsync -> GetAsync
+- ObterListaAsync -> GetListAsync
+- AdicionarAsync -> AddAsync
+- AdicionarRetornandoAsync -> AddReturningAsync
+- AdicionarEmLoteAsync -> AddBatchAsync
+- AtualizarAsync -> UpdateAsync
+- DeletarAsync -> DeleteAsync
+- DeletarTudoAsync -> DeleteAllAsync
+- ExecutarQueryAsync -> ExecuteQueryAsync
+- ObterProximoCodigoAsync -> GetNextCodeAsync
+- ObterListaPorUsuarioAsync -> GetListByUserAsync
+- ObterPorCodigoAsync -> GetByCodeAsync
+- IdentificarBanco -> IdentifyDatabase
+
+5. ConnectionFactory methods
+- Criar -> Create
+- CriarDoArquivo -> CreateFromFile
+- GerarArquivoParametros -> GenerateParametersFile
+- GerarArquivoPadrao -> GenerateDefaultFile
+
+6. Parameters file
+- Default file name changed from parametros.json to parameters.json.
+- JSON properties are now in English:
+  - Conexoes -> Connections
+  - NomeConexao -> ConnectionName
+  - Conexao -> ConnectionString
+  - TipoBancoDados -> DatabaseType
+  - Ativo -> IsActive
+  - EhStringBase64 -> IsBase64String
+
+Impact
+- Projects using the old Portuguese API must update usings, attributes, method calls, enum names, DTO names, and parameters.json property names.
+- Database table and column names do not need to be changed if they are mapped with EntityAttribute and ColumnAttribute.
+- Existing SQL can still be used, but generated identifiers now use the English API names.
+
+Validation
+- dotnet build JJCore.sln completed successfully with 0 warnings and 0 errors after the migration.
+- dotnet pack JJCore.sln -c Release completed successfully and generated JJCore.Domain.1.0.0.nupkg and JJCore.Infra.Data.1.0.0.nupkg.

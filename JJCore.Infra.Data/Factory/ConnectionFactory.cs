@@ -1,6 +1,6 @@
-using JJCore.Domain.Enumeradores;
-using JJCore.Domain.Extensao;
-using JJCore.Domain.Modelos;
+using JJCore.Domain.Enums;
+using JJCore.Domain.Extensions;
+using JJCore.Domain.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Npgsql;
@@ -11,99 +11,99 @@ namespace JJCore.Infra.Data.Factory
 {
     public static class ConnectionFactory
     {
-        public static IDbConnection Criar(string connectionString, eTipoBancoDados tipoBanco)
+        public static IDbConnection Create(string connectionString, DatabaseType databaseType)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                throw new ArgumentException("A string de conexão não pode ser vazia.", nameof(connectionString));
+                throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
             }
 
-            return tipoBanco switch
+            return databaseType switch
             {
-                eTipoBancoDados.SQLServer => new SqlConnection(connectionString),
-                eTipoBancoDados.SQLite => new SqliteConnection(connectionString),
-                eTipoBancoDados.PostgreSQL => new NpgsqlConnection(connectionString),
-                _ => throw new NotSupportedException($"O banco de dados {tipoBanco} não é suportado.")
+                DatabaseType.SQLServer => new SqlConnection(connectionString),
+                DatabaseType.SQLite => new SqliteConnection(connectionString),
+                DatabaseType.PostgreSQL => new NpgsqlConnection(connectionString),
+                _ => throw new NotSupportedException($"Database {databaseType} is not supported.")
             };
         }
 
-        public static IDbConnection CriarDoArquivo(string caminhoArquivo = "parametros.json")
+        public static IDbConnection CreateFromFile(string filePath = "parameters.json")
         {
-            var arquivo = JsonHelper.LerArquivo<ArquivoParametrosDto>(caminhoArquivo);
+            var file = JsonHelper.ReadFile<ConnectionParametersFileDto>(filePath);
 
-            if (arquivo == null || arquivo.Conexoes.Count == 0)
+            if (file == null || file.Connections.Count == 0)
             {
-                throw new InvalidOperationException("O arquivo de parâmetros está vazio ou inválido.");
+                throw new InvalidOperationException("Parameters file is empty or invalid.");
             }
 
-            var conexoesAtivas = arquivo.Conexoes.Where(c => c.Ativo).ToList();
+            var activeConnections = file.Connections.Where(c => c.IsActive).ToList();
 
-            if (conexoesAtivas.Count == 0)
+            if (activeConnections.Count == 0)
             {
-                throw new InvalidOperationException("Nenhuma conexão ativa foi encontrada no arquivo de parâmetros.");
+                throw new InvalidOperationException("No active connection was found in the parameters file.");
             }
 
-            if (conexoesAtivas.Count > 1)
+            if (activeConnections.Count > 1)
             {
-                throw new InvalidOperationException("Mais de uma conexão ativa foi encontrada no arquivo de parâmetros.");
+                throw new InvalidOperationException("More than one active connection was found in the parameters file.");
             }
 
-            var configAtiva = conexoesAtivas[0];
-            string stringConexaoFinal = configAtiva.Conexao;
+            var activeConfig = activeConnections[0];
+            string finalConnectionString = activeConfig.ConnectionString;
 
-            if (configAtiva.EhStringBase64)
+            if (activeConfig.IsBase64String)
             {
-                var base64Bytes = Convert.FromBase64String(stringConexaoFinal);
-                stringConexaoFinal = Encoding.UTF8.GetString(base64Bytes);
+                var base64Bytes = Convert.FromBase64String(finalConnectionString);
+                finalConnectionString = Encoding.UTF8.GetString(base64Bytes);
             }
 
-            return Criar(stringConexaoFinal, configAtiva.TipoBancoDados);
+            return Create(finalConnectionString, activeConfig.DatabaseType);
         }
 
-        public static void GerarArquivoParametros(ArquivoParametrosDto parametros, string caminhoArquivo = "parametros.json")
+        public static void GenerateParametersFile(ConnectionParametersFileDto parameters, string filePath = "parameters.json")
         {
-            if (parametros == null || parametros.Conexoes.Count == 0)
+            if (parameters == null || parameters.Connections.Count == 0)
             {
-                throw new ArgumentException("A lista de conexões fornecida está vazia ou nula.", nameof(parametros));
+                throw new ArgumentException("Connection list cannot be null or empty.", nameof(parameters));
             }
 
-            JsonHelper.SalvarArquivo(parametros, caminhoArquivo);
+            JsonHelper.SaveFile(parameters, filePath);
         }
 
-        public static void GerarArquivoPadrao(string caminhoArquivo = "parametros.json")
+        public static void GenerateDefaultFile(string filePath = "parameters.json")
         {
-            var template = new ArquivoParametrosDto
+            var template = new ConnectionParametersFileDto
             {
-                Conexoes = new List<ParametroConexaoDto>
+                Connections = new List<ConnectionParameterDto>
                 {
-                    new ParametroConexaoDto
+                    new ConnectionParameterDto
                     {
-                        NomeConexao = "Producao_SQLServer",
-                        Conexao = "Server=MEU_SERVIDOR;Database=MEU_BANCO;User Id=MEU_USUARIO;Password=MINHA_SENHA;TrustServerCertificate=True;",
-                        TipoBancoDados = eTipoBancoDados.SQLServer,
-                        Ativo = true,
-                        EhStringBase64 = false
+                        ConnectionName = "Production_SQLServer",
+                        ConnectionString = "Server=MY_SERVER;Database=MY_DATABASE;User Id=MY_USER;Password=MY_PASSWORD;TrustServerCertificate=True;",
+                        DatabaseType = DatabaseType.SQLServer,
+                        IsActive = true,
+                        IsBase64String = false
                     },
-                    new ParametroConexaoDto
+                    new ConnectionParameterDto
                     {
-                        NomeConexao = "Local_SQLite",
-                        Conexao = "Data Source=banco_local.db;",
-                        TipoBancoDados = eTipoBancoDados.SQLite,
-                        Ativo = false,
-                        EhStringBase64 = false
+                        ConnectionName = "Local_SQLite",
+                        ConnectionString = "Data Source=local_database.db;",
+                        DatabaseType = DatabaseType.SQLite,
+                        IsActive = false,
+                        IsBase64String = false
                     },
-                    new ParametroConexaoDto
+                    new ConnectionParameterDto
                     {
-                        NomeConexao = "Supabase_PostgreSQL",
-                        Conexao = "Host=MEU_HOST_SUPABASE;Port=5432;Database=postgres;Username=postgres;Password=MINHA_SENHA;SSL Mode=Require;Trust Server Certificate=true;",
-                        TipoBancoDados = eTipoBancoDados.PostgreSQL,
-                        Ativo = false,
-                        EhStringBase64 = false
+                        ConnectionName = "Supabase_PostgreSQL",
+                        ConnectionString = "Host=MY_SUPABASE_HOST;Port=5432;Database=postgres;Username=postgres;Password=MY_PASSWORD;SSL Mode=Require;Trust Server Certificate=true;",
+                        DatabaseType = DatabaseType.PostgreSQL,
+                        IsActive = false,
+                        IsBase64String = false
                     }
                 }
             };
 
-            JsonHelper.SalvarArquivo(template, caminhoArquivo);
+            JsonHelper.SaveFile(template, filePath);
         }
     }
 }

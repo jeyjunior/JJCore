@@ -4,7 +4,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <PackageId>JJCore.Domain</PackageId>
     <Title>JJCore.Domain</Title>
-    <Description>Estruturas de domínio, contratos, atributos, DTOs e extensões utilitárias para os projetos JJCore.</Description>
+    <Description>Domain contracts, mapping attributes, DTOs, messages, and utility extensions for JJCore projects.</Description>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
