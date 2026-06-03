@@ -10,6 +10,7 @@ namespace JJCore.Domain.Interfaces.Repository
         Task<IEnumerable<TEntity>> ObterListaAsync(string condicao = "", object? parametros = null);
         Task<int> AdicionarEmLoteAsync(IEnumerable<TEntity> entidades, IDbTransaction? transaction = null);
         Task<int> AdicionarAsync(TEntity entity, IDbTransaction? transaction = null);
+        Task<object?> AdicionarRetornandoAsync(TEntity entity, IDbTransaction? transaction = null);
         Task<int> AtualizarAsync(TEntity entity, IDbTransaction? transaction = null);
         Task<int> DeletarAsync(int id, IDbTransaction? transaction = null);
         Task<int> DeletarAsync(long id, IDbTransaction? transaction = null);

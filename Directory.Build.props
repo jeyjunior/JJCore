@@ -4,5 +4,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0</Version>
+    <Authors>jeyjunior</Authors>
+    <Company>jeyjunior</Company>
+    <Product>JJCore</Product>
+    <RepositoryUrl>https://github.com/jeyjunior/JJCore</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/jeyjunior/JJCore</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase</PackageTags>
   </PropertyGroup>
 </Project>

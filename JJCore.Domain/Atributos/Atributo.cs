@@ -5,6 +5,27 @@ namespace JJCore.Domain.Atributos
     {
     }
 
+    [AttributeUsage(AttributeTargets.Property)]
+    public class Coluna : Attribute
+    {
+        public string Nome { get; }
+
+        public Coluna(string nome)
+        {
+            Nome = nome;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    public class NaoMapear : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    public class CodigoUsuario : Attribute
+    {
+    }
+
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public class EntidadeAttribute : Attribute
     {

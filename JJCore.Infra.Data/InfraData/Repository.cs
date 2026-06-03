@@ -19,6 +19,11 @@ namespace JJCore.Infra.Data.InfraData
             return await UnitOfWork.Connection.AdicionarAsync(entity, transaction ?? UnitOfWork.Transaction);
         }
 
+        public virtual async Task<object?> AdicionarRetornandoAsync(TEntity entity, IDbTransaction? transaction = null)
+        {
+            return await UnitOfWork.Connection.AdicionarRetornandoAsync(entity, transaction ?? UnitOfWork.Transaction);
+        }
+
         public virtual async Task<int> AdicionarEmLoteAsync(IEnumerable<TEntity> entidades, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.AdicionarEmLoteAsync(entidades, transaction ?? UnitOfWork.Transaction);

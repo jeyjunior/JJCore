@@ -24,10 +24,15 @@ public class Cliente
     [ChavePrimaria]
     public int Id { get; set; }
 
-    [Obrigatorio]
+    [Obrigatorio, Coluna("nome")]
     public string Nome { get; set; } = string.Empty;
+
+    [NaoMapear]
+    public string? CampoCalculado { get; set; }
 }
 ```
+
+Use `[Coluna("nome_da_coluna")]` quando o nome da propriedade C# for diferente do nome da coluna no banco. Use `[NaoMapear]` para propriedades que não existem na tabela.
 
 ## Exemplo de conexão
 

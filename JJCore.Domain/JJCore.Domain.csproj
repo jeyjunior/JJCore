@@ -2,10 +2,17 @@
 
   <PropertyGroup>
     <Platforms>AnyCPU;x64</Platforms>
+    <PackageId>JJCore.Domain</PackageId>
+    <Title>JJCore.Domain</Title>
+    <Description>Estruturas de domínio, contratos, atributos, DTOs e extensões utilitárias para os projetos JJCore.</Description>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
