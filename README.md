@@ -134,6 +134,63 @@ catch
 }
 ```
 
+## Asynchronous Unit Of Work
+
+`AsyncUnitOfWork` does not open the connection in its constructor, which makes it suitable for dependency injection and Worker services. It implements both `IDisposable` and `IAsyncDisposable`.
+
+```csharp
+using var cancellationSource = new CancellationTokenSource();
+CancellationToken cancellationToken = cancellationSource.Token;
+
+await using var unitOfWork = new AsyncUnitOfWork(
+    ConnectionFactory.Create(connectionString, DatabaseType.PostgreSQL));
+
+await unitOfWork.OpenAsync(cancellationToken);
+await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+try
+{
+    await customerRepository.AddAsync(customer, null, cancellationToken);
+    await unitOfWork.CommitAsync(cancellationToken);
+}
+catch
+{
+    await unitOfWork.RollbackAsync(CancellationToken.None);
+    throw;
+}
+```
+
+For dependency injection, register `IAsyncUnitOfWork` as scoped and inject it into repositories that use cancellable operations. Create one scope per API request, Worker job, or logical operation. A Unit of Work must not be registered as a singleton or shared by parallel operations.
+
+```csharp
+services.AddScoped<IAsyncUnitOfWork>(_ => new AsyncUnitOfWork(
+    ConnectionFactory.Create(connectionString, DatabaseType.PostgreSQL)));
+services.AddScoped<ICustomerRepository, CustomerRepository>();
+```
+
+```csharp
+public interface ICustomerRepository : ICancellableRepository<Customer>
+{
+}
+
+public class CustomerRepository : Repository<Customer>, ICustomerRepository
+{
+    public CustomerRepository(IAsyncUnitOfWork unitOfWork) : base(unitOfWork)
+    {
+    }
+}
+```
+
+Existing `IUnitOfWork`, `UnitOfWork`, `IRepository<TEntity>`, and repository methods without `CancellationToken` remain available. New repository abstractions can inherit from `ICancellableRepository<TEntity>` to expose the cancellable overloads.
+
+Cancellation during `CommitAsync` does not prove that the database rejected the commit. Applications that require strong delivery guarantees must use idempotency and reconciliation appropriate to their domain.
+
+## Sequential User Codes
+
+`GetNextCodeAsync` calculates the next value with `MAX(code) + 1`. It is convenient for single-process or otherwise serialized operations, but it does not reserve the returned value atomically. Concurrent callers can receive the same value.
+
+For concurrent applications, enforce a unique constraint and prefer a database sequence, identity, or another database-controlled strategy. If `GetNextCodeAsync` is used, duplicate-key conflicts must be handled by the application.
+
 ## License
 
 JJCore is distributed under a custom proprietary non-commercial license. Personal, educational, evaluation, and internal use is allowed. Commercial use, redistribution, sublicensing, resale, or publishing modified copies requires prior written permission from the copyright holder.

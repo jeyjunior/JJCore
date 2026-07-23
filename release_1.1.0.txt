@@ -1,0 +1,34 @@
+JJCORE 1.1.0 - ASYNC UNIT OF WORK AND CANCELLATION
+
+Context
+This release adds opt-in asynchronous connection and transaction management and propagates CancellationToken to Dapper commands. Existing synchronous lifecycle methods and repository signatures remain available.
+
+New Contracts
+- IAsyncUnitOfWork extends IUnitOfWork and IAsyncDisposable.
+- ICancellableRepository<TEntity> extends IRepository<TEntity> with cancellable overloads.
+- AsyncUnitOfWork provides asynchronous open, transaction, commit, rollback, and disposal operations.
+
+Compatibility
+- IUnitOfWork was not changed.
+- IRepository<TEntity> was not changed.
+- UnitOfWork keeps its existing constructor and behavior.
+- Repository<TEntity> implements ICancellableRepository<TEntity>, which also makes it an IRepository<TEntity>.
+- Existing Dapper extension signatures delegate to the cancellable implementations with CancellationToken.None.
+
+Dependency Injection
+- Register IAsyncUnitOfWork with a scoped lifetime.
+- Use one scope per request, Worker job, or logical operation.
+- Do not register a Unit of Work as a singleton or share it between parallel operations.
+- Resolve the service synchronously and call OpenAsync from the asynchronous operation because dependency injection containers do not provide asynchronous constructors.
+
+Target Framework Behavior
+- net8.0 uses the asynchronous ADO.NET transaction APIs.
+- netstandard2.0 uses asynchronous connection opening and cancellable Dapper commands. Transaction lifecycle methods preserve compatibility with providers whose netstandard2.0 APIs expose only synchronous transaction creation through DbConnection.
+
+Cancellation Notes
+- Cancellable Dapper operations use CommandDefinition.
+- Rollback after a failed or cancelled commit uses CancellationToken.None for cleanup.
+- A cancelled commit can have an unknown outcome. Domain-level idempotency and reconciliation remain the responsibility of the consuming application.
+
+GetNextCodeAsync
+This helper uses MAX(code) + 1 and does not reserve the generated value atomically. Concurrent calls can return the same value. Concurrent systems should use a unique constraint and prefer database sequences, identity columns, or another database-controlled strategy.

@@ -9,7 +9,7 @@ namespace JJCore.Infra.Data.Infrastructure
     /// Base repository implementation that delegates generic CRUD operations to JJCore Dapper extensions.
     /// </summary>
     /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-    public abstract class Repository<TEntity> : IRepository<TEntity> where TEntity : class
+    public abstract class Repository<TEntity> : ICancellableRepository<TEntity> where TEntity : class
     {
         /// <summary>
         /// Gets the unit of work used by this repository.
@@ -37,6 +37,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Inserts one entity with cancellation support and returns the generated primary key as an integer.
+        /// </summary>
+        public virtual async Task<int> AddAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .AddAsync(entity, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Inserts one entity and returns the generated primary key without forcing an integer conversion.
         /// </summary>
         /// <param name="entity">The entity to insert.</param>
@@ -45,6 +55,16 @@ namespace JJCore.Infra.Data.Infrastructure
         public virtual async Task<object?> AddReturningAsync(TEntity entity, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.AddReturningAsync(entity, transaction ?? UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Inserts one entity with cancellation support and returns the generated primary key.
+        /// </summary>
+        public virtual async Task<object?> AddReturningAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .AddReturningAsync(entity, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
@@ -59,6 +79,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Inserts multiple entities with cancellation support.
+        /// </summary>
+        public virtual async Task<int> AddBatchAsync(IEnumerable<TEntity> entities, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .AddBatchAsync(entities, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Updates one entity using its mapped primary key.
         /// </summary>
         /// <param name="entity">The entity to update.</param>
@@ -67,6 +97,16 @@ namespace JJCore.Infra.Data.Infrastructure
         public virtual async Task<int> UpdateAsync(TEntity entity, IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.UpdateAsync(entity, transaction ?? UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Updates one entity with cancellation support.
+        /// </summary>
+        public virtual async Task<int> UpdateAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .UpdateAsync(entity, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
@@ -81,6 +121,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Deletes one entity by an integer primary key with cancellation support.
+        /// </summary>
+        public virtual async Task<int> DeleteAsync(int id, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Deletes one entity by a long primary key.
         /// </summary>
         /// <param name="id">The primary key value.</param>
@@ -92,6 +142,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Deletes one entity by a long primary key with cancellation support.
+        /// </summary>
+        public virtual async Task<int> DeleteAsync(long id, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Deletes all rows from the mapped table.
         /// </summary>
         /// <param name="transaction">The transaction to use, when provided.</param>
@@ -99,6 +159,16 @@ namespace JJCore.Infra.Data.Infrastructure
         public virtual async Task<int> DeleteAllAsync(IDbTransaction? transaction = null)
         {
             return await UnitOfWork.Connection.DeleteAllAsync<TEntity>(transaction ?? UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Deletes all rows from the mapped table with cancellation support.
+        /// </summary>
+        public virtual async Task<int> DeleteAllAsync(IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .DeleteAllAsync<TEntity>(transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
@@ -114,6 +184,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Executes a custom SQL command with cancellation support.
+        /// </summary>
+        public virtual async Task<int> ExecuteQueryAsync(string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .ExecuteQueryAsync(query, parameters, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Gets one entity by its primary key value.
         /// </summary>
         /// <param name="id">The primary key value.</param>
@@ -121,6 +201,16 @@ namespace JJCore.Infra.Data.Infrastructure
         public virtual async Task<TEntity?> GetAsync(object id)
         {
             return await UnitOfWork.Connection.GetAsync<TEntity>(id, UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Gets one entity by its primary key value with cancellation support.
+        /// </summary>
+        public virtual async Task<TEntity?> GetAsync(object id, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetAsync<TEntity>(id, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
@@ -135,6 +225,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Gets one entity using a custom WHERE condition with cancellation support.
+        /// </summary>
+        public virtual async Task<TEntity?> GetAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Gets a list of entities using an optional WHERE condition.
         /// </summary>
         /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
@@ -146,14 +246,35 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Gets a list of entities using an optional WHERE condition with cancellation support.
+        /// </summary>
+        public virtual async Task<IEnumerable<TEntity>> GetListAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetListAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Gets the next sequential code for a user-owned entity.
         /// </summary>
         /// <param name="userId">The user identifier used to scope the sequence.</param>
         /// <param name="initialValue">The first value to use when no rows exist.</param>
-        /// <returns>The next available code.</returns>
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
         public virtual async Task<long> GetNextCodeAsync(long userId, long initialValue = 1)
         {
             return await UnitOfWork.Connection.GetNextCodeAsync<TEntity>(userId, initialValue, UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Gets the next sequential code for a user-owned entity with cancellation support.
+        /// </summary>
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
+        public virtual async Task<long> GetNextCodeAsync(long userId, long initialValue, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetNextCodeAsync<TEntity>(userId, initialValue, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
@@ -167,6 +288,16 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Gets all entities owned by one user with cancellation support.
+        /// </summary>
+        public virtual async Task<IEnumerable<TEntity>> GetListByUserAsync(long userId, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetListByUserAsync<TEntity>(userId, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Gets one user-owned entity by its per-user code.
         /// </summary>
         /// <param name="code">The per-user code value.</param>
@@ -175,6 +306,16 @@ namespace JJCore.Infra.Data.Infrastructure
         public virtual async Task<TEntity?> GetByCodeAsync(long code, long userId)
         {
             return await UnitOfWork.Connection.GetByCodeAsync<TEntity>(code, userId, UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Gets one user-owned entity by its per-user code with cancellation support.
+        /// </summary>
+        public virtual async Task<TEntity?> GetByCodeAsync(long code, long userId, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetByCodeAsync<TEntity>(code, userId, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>

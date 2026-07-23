@@ -101,7 +101,7 @@ namespace JJCore.Domain.Interfaces.Repository
         /// </summary>
         /// <param name="userId">The user identifier used to scope the sequence.</param>
         /// <param name="initialValue">The first value to use when no rows exist.</param>
-        /// <returns>The next available code.</returns>
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
         Task<long> GetNextCodeAsync(long userId, long initialValue = 1);
 
         /// <summary>

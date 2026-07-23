@@ -1,0 +1,135 @@
+using System.Data;
+
+namespace JJCore.Domain.Interfaces.Repository
+{
+    /// <summary>
+    /// Extends the generic repository with cancellable database operations.
+    /// </summary>
+    /// <typeparam name="TEntity">The mapped entity type.</typeparam>
+    public interface ICancellableRepository<TEntity> : IRepository<TEntity> where TEntity : class
+    {
+        /// <summary>
+        /// Gets one entity by its primary key value with cancellation support.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        Task<TEntity?> GetAsync(object id, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition with cancellation support.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        Task<TEntity?> GetAsync(string condition, object? parameters, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets a list of entities with cancellation support.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The matching entities.</returns>
+        Task<IEnumerable<TEntity>> GetListAsync(string condition, object? parameters, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Inserts multiple entities with cancellation support.
+        /// </summary>
+        /// <param name="entities">The entities to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> AddBatchAsync(IEnumerable<TEntity> entities, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Inserts one entity with cancellation support and returns its generated integer key.
+        /// </summary>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The generated primary key converted to int.</returns>
+        Task<int> AddAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Inserts one entity with cancellation support and returns its generated key.
+        /// </summary>
+        /// <param name="entity">The entity to insert.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The generated primary key value.</returns>
+        Task<object?> AddReturningAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Updates one entity with cancellation support.
+        /// </summary>
+        /// <param name="entity">The entity to update.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> UpdateAsync(TEntity entity, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Deletes one entity by an integer primary key with cancellation support.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> DeleteAsync(int id, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Deletes one entity by a long primary key with cancellation support.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> DeleteAsync(long id, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Deletes all rows from the mapped table with cancellation support.
+        /// </summary>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> DeleteAllAsync(IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Executes a custom SQL command with cancellation support.
+        /// </summary>
+        /// <param name="query">The SQL command to execute.</param>
+        /// <param name="parameters">The command parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The number of affected rows.</returns>
+        Task<int> ExecuteQueryAsync(string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets the next sequential code for a user-owned entity with cancellation support.
+        /// </summary>
+        /// <param name="userId">The user identifier used to scope the sequence.</param>
+        /// <param name="initialValue">The first value to use when no rows exist.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
+        Task<long> GetNextCodeAsync(long userId, long initialValue, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets all entities owned by one user with cancellation support.
+        /// </summary>
+        /// <param name="userId">The user identifier.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The matching entities.</returns>
+        Task<IEnumerable<TEntity>> GetListByUserAsync(long userId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets one user-owned entity by its per-user code with cancellation support.
+        /// </summary>
+        /// <param name="code">The per-user code value.</param>
+        /// <param name="userId">The user identifier.</param>
+        /// <param name="cancellationToken">The token used to cancel the operation.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        Task<TEntity?> GetByCodeAsync(long code, long userId, CancellationToken cancellationToken);
+    }
+}

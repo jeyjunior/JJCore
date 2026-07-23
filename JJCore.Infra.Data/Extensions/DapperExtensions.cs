@@ -27,7 +27,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="id">The primary key value.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public static async Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        {
+            return connection.GetAsync<T>(id, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity by its primary key value with cancellation support.
+        /// </summary>
+        public static async Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -39,7 +47,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, connection.IdentifyDatabase());
 
-            return await connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, transaction);
+            var command = new CommandDefinition(sql, new { Id = id }, transaction, cancellationToken: cancellationToken);
+            return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -51,7 +60,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="parameters">The query parameters.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public static async Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return connection.GetAsync<T>(condition, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity using a custom WHERE condition with cancellation support.
+        /// </summary>
+        public static async Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -67,7 +84,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, connection.IdentifyDatabase());
 
-            return await connection.QuerySingleOrDefaultAsync<T>(sql, parameters, transaction);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -79,7 +97,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="parameters">The query parameters.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The matching entities.</returns>
-        public static async Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition = "", object? parameters = null, IDbTransaction? transaction = null)
+        public static Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition = "", object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return connection.GetListAsync<T>(condition, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets mapped entities using an optional WHERE condition with cancellation support.
+        /// </summary>
+        public static async Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -95,7 +121,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, connection.IdentifyDatabase());
 
-            return await connection.QueryAsync<T>(sql, parameters, transaction);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            return await connection.QueryAsync<T>(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -106,7 +133,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="entities">The entities to insert.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The number of affected rows.</returns>
-        public static async Task<int> AddBatchAsync<T>(this IDbConnection connection, IEnumerable<T> entities, IDbTransaction? transaction = null)
+        public static Task<int> AddBatchAsync<T>(this IDbConnection connection, IEnumerable<T> entities, IDbTransaction? transaction = null)
+        {
+            return connection.AddBatchAsync(entities, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Inserts multiple mapped entities with cancellation support.
+        /// </summary>
+        public static async Task<int> AddBatchAsync<T>(this IDbConnection connection, IEnumerable<T> entities, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -129,7 +164,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            return await connection.ExecuteAsync(sql, parameters, transaction);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            return await connection.ExecuteAsync(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -140,9 +176,17 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="entity">The entity to insert.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The generated primary key converted to int.</returns>
-        public static async Task<int> AddAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
+        public static Task<int> AddAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
         {
-            object? result = await connection.AddReturningAsync(entity, transaction);
+            return connection.AddAsync(entity, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Inserts one mapped entity with cancellation support and returns its generated integer key.
+        /// </summary>
+        public static async Task<int> AddAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            object? result = await connection.AddReturningAsync(entity, transaction, cancellationToken).ConfigureAwait(false);
 
             try
             {
@@ -162,7 +206,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="entity">The entity to insert.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The generated primary key value.</returns>
-        public static async Task<object?> AddReturningAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
+        public static Task<object?> AddReturningAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
+        {
+            return connection.AddReturningAsync(entity, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Inserts one mapped entity with cancellation support and returns its generated key.
+        /// </summary>
+        public static async Task<object?> AddReturningAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
             if (entity == null)
@@ -192,7 +244,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            object? result = await connection.ExecuteScalarAsync<object>(sql, parameters, transaction);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            object? result = await connection.ExecuteScalarAsync<object>(command).ConfigureAwait(false);
 
             if (result == null || result == DBNull.Value)
             {
@@ -210,7 +263,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="entity">The entity to update.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The number of affected rows.</returns>
-        public static async Task<int> UpdateAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
+        public static Task<int> UpdateAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction = null)
+        {
+            return connection.UpdateAsync(entity, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Updates one mapped entity with cancellation support.
+        /// </summary>
+        public static async Task<int> UpdateAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
             if (entity == null)
@@ -241,7 +302,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            var rowsAffected = await connection.ExecuteAsync(sql, parameters, transaction);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            var rowsAffected = await connection.ExecuteAsync(command).ConfigureAwait(false);
 
             if (rowsAffected == 0)
             {
@@ -259,7 +321,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="id">The primary key value.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The number of affected rows.</returns>
-        public static async Task<int> DeleteAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        public static Task<int> DeleteAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        {
+            return connection.DeleteAsync<T>(id, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Deletes one mapped entity by primary key value with cancellation support.
+        /// </summary>
+        public static async Task<int> DeleteAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -271,7 +341,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            int rowsAffected = await connection.ExecuteAsync(sql, new { Id = id }, transaction);
+            var command = new CommandDefinition(sql, new { Id = id }, transaction, cancellationToken: cancellationToken);
+            int rowsAffected = await connection.ExecuteAsync(command).ConfigureAwait(false);
 
             if (rowsAffected == 0)
             {
@@ -288,7 +359,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="connection">The database connection.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The number of affected rows.</returns>
-        public static async Task<int> DeleteAllAsync<T>(this IDbConnection connection, IDbTransaction? transaction = null)
+        public static Task<int> DeleteAllAsync<T>(this IDbConnection connection, IDbTransaction? transaction = null)
+        {
+            return connection.DeleteAllAsync<T>(transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Deletes all rows from the mapped table with cancellation support.
+        /// </summary>
+        public static async Task<int> DeleteAllAsync<T>(this IDbConnection connection, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -299,7 +378,8 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            return await connection.ExecuteAsync(sql, transaction: transaction);
+            var command = new CommandDefinition(sql, transaction: transaction, cancellationToken: cancellationToken);
+            return await connection.ExecuteAsync(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -310,7 +390,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="parameters">The command parameters.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The number of affected rows.</returns>
-        public static async Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters = null, IDbTransaction? transaction = null)
+        public static Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return connection.ExecuteQueryAsync(query, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command with cancellation support.
+        /// </summary>
+        public static async Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -321,7 +409,8 @@ namespace JJCore.Infra.Data.Extensions
 
             query = SqlTranslator.TranslateQuery(query, connection.IdentifyDatabase());
 
-            return await connection.ExecuteAsync(query, parameters, transaction);
+            var command = new CommandDefinition(query, parameters, transaction, cancellationToken: cancellationToken);
+            return await connection.ExecuteAsync(command).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -332,8 +421,17 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="userId">The user identifier used to scope the sequence.</param>
         /// <param name="initialValue">The first value to use when no rows exist.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
-        /// <returns>The next available code.</returns>
-        public static async Task<long> GetNextCodeAsync<T>(this IDbConnection connection, long userId, long initialValue = 1, IDbTransaction? transaction = null)
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
+        public static Task<long> GetNextCodeAsync<T>(this IDbConnection connection, long userId, long initialValue = 1, IDbTransaction? transaction = null)
+        {
+            return connection.GetNextCodeAsync<T>(userId, initialValue, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets the next sequential code with cancellation support.
+        /// </summary>
+        /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
+        public static async Task<long> GetNextCodeAsync<T>(this IDbConnection connection, long userId, long initialValue, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -349,7 +447,12 @@ namespace JJCore.Infra.Data.Extensions
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
-            var result = await connection.ExecuteScalarAsync<object>(sql, new { UserId = userId, BaseValue = baseValue }, transaction);
+            var command = new CommandDefinition(
+                sql,
+                new { UserId = userId, BaseValue = baseValue },
+                transaction,
+                cancellationToken: cancellationToken);
+            var result = await connection.ExecuteScalarAsync<object>(command).ConfigureAwait(false);
 
             return Convert.ToInt64(result, CultureInfo.InvariantCulture);
         }
@@ -363,7 +466,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="userId">The user identifier.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public static async Task<T?> GetByCodeAsync<T>(this IDbConnection connection, long code, long userId, IDbTransaction? transaction = null)
+        public static Task<T?> GetByCodeAsync<T>(this IDbConnection connection, long code, long userId, IDbTransaction? transaction = null)
+        {
+            return connection.GetByCodeAsync<T>(code, userId, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one user-owned mapped entity by its per-user code with cancellation support.
+        /// </summary>
+        public static async Task<T?> GetByCodeAsync<T>(this IDbConnection connection, long code, long userId, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             var mapping = GetMapping(typeof(T));
             var codeProperty = GetUserCodeProperty(mapping);
@@ -372,7 +483,7 @@ namespace JJCore.Infra.Data.Extensions
             string userColumn = QuoteIdentifier(userProperty.ColumnName);
             string condition = $"{codeColumn} = @Code AND {userColumn} = @UserId";
 
-            return await connection.GetAsync<T>(condition, new { Code = code, UserId = userId }, transaction);
+            return await connection.GetAsync<T>(condition, new { Code = code, UserId = userId }, transaction, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -383,14 +494,22 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="userId">The user identifier.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The matching entities.</returns>
-        public static async Task<IEnumerable<T>> GetListByUserAsync<T>(this IDbConnection connection, long userId, IDbTransaction? transaction = null)
+        public static Task<IEnumerable<T>> GetListByUserAsync<T>(this IDbConnection connection, long userId, IDbTransaction? transaction = null)
+        {
+            return connection.GetListByUserAsync<T>(userId, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets all mapped entities owned by one user with cancellation support.
+        /// </summary>
+        public static async Task<IEnumerable<T>> GetListByUserAsync<T>(this IDbConnection connection, long userId, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             var mapping = GetMapping(typeof(T));
             var userProperty = GetUserIdProperty(mapping);
             string userColumn = QuoteIdentifier(userProperty.ColumnName);
             string condition = $"{userColumn} = @UserId";
 
-            return await connection.GetListAsync<T>(condition, new { UserId = userId }, transaction);
+            return await connection.GetListAsync<T>(condition, new { UserId = userId }, transaction, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

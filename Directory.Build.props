@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>José Junior</Authors>
     <Company>José Junior</Company>
@@ -16,7 +16,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Adds XML documentation files for NuGet IntelliSense.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds an asynchronous Unit of Work and cancellable repository and Dapper operations while preserving the existing APIs.</PackageReleaseNotes>
     <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase</PackageTags>
   </PropertyGroup>
 </Project>
