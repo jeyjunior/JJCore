@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>JJCore.Infra.Data.PostgreSQL</PackageId>
+    <Title>JJCore.Infra.Data.PostgreSQL</Title>
+    <Description>PostgreSQL and Supabase provider package for JJCore data infrastructure.</Description>
+    <PackageTags>jjcore;dapper;database;postgresql;supabase;npgsql</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="8.0.7" />
+    <ProjectReference Include="..\JJCore.Infra.Data\JJCore.Infra.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

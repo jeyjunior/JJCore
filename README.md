@@ -5,13 +5,74 @@ Simple .NET library for database connections and CRUD operations with Dapper.
 ## Projects
 
 - `JJCore.Domain`: contracts, mapping attributes, DTOs, messages, and general utility extensions.
-- `JJCore.Infra.Data`: connection factory, unit of work, base repository, SQL translator, and Dapper extensions.
+- `JJCore.Infra.Data.Core`: provider-neutral connection factory, unit of work, base repository, SQL translator, and Dapper extensions.
+- `JJCore.Infra.Data.PostgreSQL`: PostgreSQL and Supabase provider package.
+- `JJCore.Infra.Data.SqlServer`: SQL Server provider package.
+- `JJCore.Infra.Data.SQLite`: SQLite provider package.
+- `JJCore.Infra.Data.MySQL`: MySQL and MariaDB provider package.
+- `JJCore.Infra.Data`: aggregate compatibility package containing all providers.
+
+## Installation
+
+Install only the provider used by the application:
+
+```powershell
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.0.0
+```
+
+```powershell
+dotnet add package JJCore.Infra.Data.SqlServer --version 2.0.0
+```
+
+```powershell
+dotnet add package JJCore.Infra.Data.SQLite --version 2.0.0
+```
+
+```powershell
+dotnet add package JJCore.Infra.Data.MySQL --version 2.0.0
+```
+
+Each provider package includes `JJCore.Infra.Data.Core` and `JJCore.Domain` transitively. Projects that use only domain contracts and utilities can reference `JJCore.Domain` directly.
+
+The aggregate package remains available for applications that use multiple providers or need a controlled migration from version 1.x:
+
+```powershell
+dotnet add package JJCore.Infra.Data --version 2.0.0
+```
+
+Applications migrating from the aggregate package to a provider-specific package do not need namespace or code changes. Replace the package reference and restore the project.
+
+## Local Package Validation
+
+Build all packages into the shared local source:
+
+```powershell
+dotnet pack .\JJCore.sln -c Release
+```
+
+Register the shared output directory as an additional NuGet source:
+
+```powershell
+dotnet nuget add source D:\path\to\JJCore\artifacts\packages --name JJCoreLocal
+```
+
+Install the unpublished provider package in a consumer project:
+
+```powershell
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.0.0
+dotnet add package JJCore.Infra.Data.MySQL --version 2.0.0
+```
+
+The `artifacts/packages` directory is generated locally and is not tracked by Git.
 
 ## Supported Databases
 
 - SQL Server (`Microsoft.Data.SqlClient`)
 - SQLite (`Microsoft.Data.Sqlite`)
 - PostgreSQL/Supabase (`Npgsql`)
+- MySQL/MariaDB (`MySqlConnector`)
+
+`ConnectionFactory` reports which provider package is missing when an application requests a database provider that is not installed.
 
 ## Entity Example
 
@@ -48,6 +109,19 @@ using JJCore.Infra.Data.Data;
 using JJCore.Infra.Data.Factory;
 
 using var connection = ConnectionFactory.Create("Data Source=app.db;", DatabaseType.SQLite);
+using var unitOfWork = new UnitOfWork(connection);
+```
+
+## MySQL/MariaDB Example
+
+```csharp
+using JJCore.Domain.Enums;
+using JJCore.Infra.Data.Data;
+using JJCore.Infra.Data.Factory;
+
+string connectionString = "Server=MY_SERVER;Port=3306;Database=MY_DATABASE;User ID=MY_USER;Password=MY_PASSWORD;SslMode=Required;";
+
+using var connection = ConnectionFactory.Create(connectionString, DatabaseType.MySQL);
 using var unitOfWork = new UnitOfWork(connection);
 ```
 

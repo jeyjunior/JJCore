@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>JJCore.Infra.Data</PackageId>
+    <Title>JJCore.Infra.Data</Title>
+    <Description>Aggregate JJCore data package with SQL Server, SQLite, PostgreSQL/Supabase, and MySQL/MariaDB providers.</Description>
+    <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase;mysql;mariadb</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\JJCore.Infra.Data.MySQL\JJCore.Infra.Data.MySQL.csproj" />
+    <ProjectReference Include="..\JJCore.Infra.Data.PostgreSQL\JJCore.Infra.Data.PostgreSQL.csproj" />
+    <ProjectReference Include="..\JJCore.Infra.Data.SqlServer\JJCore.Infra.Data.SqlServer.csproj" />
+    <ProjectReference Include="..\JJCore.Infra.Data.SQLite\JJCore.Infra.Data.SQLite.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

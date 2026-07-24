@@ -1,0 +1,53 @@
+JJCORE 2.0.0 - PROVIDER-SPECIFIC PACKAGES
+
+Context
+This release separates database providers so applications install only the dependencies they use. Existing namespaces, public APIs, and the JJCore.Infra.Data assembly name remain unchanged.
+
+Packages
+- JJCore.Domain contains domain contracts and utilities.
+- JJCore.Infra.Data.Core contains provider-neutral data infrastructure and depends on Dapper and JJCore.Domain.
+- JJCore.Infra.Data.PostgreSQL depends on JJCore.Infra.Data.Core and Npgsql.
+- JJCore.Infra.Data.SqlServer depends on JJCore.Infra.Data.Core and Microsoft.Data.SqlClient.
+- JJCore.Infra.Data.SQLite depends on JJCore.Infra.Data.Core and Microsoft.Data.Sqlite.
+- JJCore.Infra.Data.MySQL depends on JJCore.Infra.Data.Core and MySqlConnector.
+- JJCore.Infra.Data remains available as an aggregate package that includes all provider packages.
+
+Migration
+- Applications that use one database should replace JJCore.Infra.Data with the corresponding provider package.
+- No namespace, entity, repository, Unit of Work, Dapper extension, or ConnectionFactory call needs to change.
+- Applications that use multiple databases can upgrade the aggregate JJCore.Infra.Data package to 2.0.0.
+
+Provider Resolution
+- The core assembly has no compile-time dependency on a database provider.
+- ConnectionFactory loads the exact connection type supplied by the installed provider package.
+- IdentifyDatabase recognizes the supported provider connection types without loading unrelated providers.
+- A request for a provider that is not installed throws a NotSupportedException naming the required JJCore package.
+
+Expected PostgreSQL Dependency Graph
+- JJCore.Infra.Data.PostgreSQL
+- JJCore.Infra.Data.Core
+- JJCore.Domain
+- Npgsql
+- Dapper
+
+SQL Server and SQLite packages are not included in the PostgreSQL dependency graph.
+
+MySQL Support
+- DatabaseType.MySQL selects the MySQL provider without changing existing enum values.
+- ConnectionFactory creates and identifies MySqlConnector.MySqlConnection instances.
+- SqlTranslator converts bracketed identifiers to MySQL backtick identifiers.
+- Generated inserts retrieve auto-increment keys through LAST_INSERT_ID().
+- MariaDB is supported through the MySqlConnector compatibility layer.
+
+Security
+- The SQLite package pins SQLitePCLRaw.bundle_e_sqlite3 2.1.12 to avoid the high-severity advisory affecting version 2.1.11.
+- Provider-specific PostgreSQL consumers do not receive SQLite native dependencies or their advisories.
+
+Compatibility
+- The JJCore.Infra.Data assembly name is preserved in JJCore.Infra.Data.Core.
+- All public namespaces and existing APIs remain available.
+- The aggregate package preserves the previous install-all-providers behavior.
+
+Publication
+All generated packages are written to artifacts/packages, which can also be used as a local NuGet source for validation.
+Publish JJCore.Domain and JJCore.Infra.Data.Core before the provider packages. Publish JJCore.Infra.Data.PostgreSQL, JJCore.Infra.Data.SqlServer, JJCore.Infra.Data.SQLite, and JJCore.Infra.Data.MySQL before the aggregate JJCore.Infra.Data package.

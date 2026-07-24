@@ -23,7 +23,12 @@ namespace JJCore.Domain.Enums
         /// <summary>
         /// PostgreSQL database provider, including Supabase databases.
         /// </summary>
-        PostgreSQL = 3
+        PostgreSQL = 3,
+
+        /// <summary>
+        /// MySQL database provider, including compatible MariaDB databases.
+        /// </summary>
+        MySQL = 4
     }
 
     /// <summary>

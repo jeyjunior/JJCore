@@ -1,10 +1,9 @@
 using JJCore.Domain.Enums;
 using JJCore.Domain.Extensions;
 using JJCore.Domain.Models;
-using Microsoft.Data.SqlClient;
-using Microsoft.Data.Sqlite;
-using Npgsql;
 using System.Data;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace JJCore.Infra.Data.Factory
@@ -14,6 +13,11 @@ namespace JJCore.Infra.Data.Factory
     /// </summary>
     public static class ConnectionFactory
     {
+        private const string SqlServerConnectionType = "Microsoft.Data.SqlClient.SqlConnection, Microsoft.Data.SqlClient";
+        private const string SQLiteConnectionType = "Microsoft.Data.Sqlite.SqliteConnection, Microsoft.Data.Sqlite";
+        private const string PostgreSQLConnectionType = "Npgsql.NpgsqlConnection, Npgsql";
+        private const string MySQLConnectionType = "MySqlConnector.MySqlConnection, MySqlConnector";
+
         /// <summary>
         /// Creates a database connection for the selected provider.
         /// </summary>
@@ -29,10 +33,23 @@ namespace JJCore.Infra.Data.Factory
 
             return databaseType switch
             {
-                DatabaseType.SQLServer => new SqlConnection(connectionString),
-                DatabaseType.SQLite => new SqliteConnection(connectionString),
-                DatabaseType.PostgreSQL => new NpgsqlConnection(connectionString),
+                DatabaseType.SQLServer => CreateProviderConnection(connectionString, databaseType, SqlServerConnectionType, "JJCore.Infra.Data.SqlServer"),
+                DatabaseType.SQLite => CreateProviderConnection(connectionString, databaseType, SQLiteConnectionType, "JJCore.Infra.Data.SQLite"),
+                DatabaseType.PostgreSQL => CreateProviderConnection(connectionString, databaseType, PostgreSQLConnectionType, "JJCore.Infra.Data.PostgreSQL"),
+                DatabaseType.MySQL => CreateProviderConnection(connectionString, databaseType, MySQLConnectionType, "JJCore.Infra.Data.MySQL"),
                 _ => throw new NotSupportedException($"Database {databaseType} is not supported.")
+            };
+        }
+
+        internal static DatabaseType IdentifyDatabase(IDbConnection connection)
+        {
+            return connection.GetType().FullName switch
+            {
+                "Microsoft.Data.SqlClient.SqlConnection" => DatabaseType.SQLServer,
+                "Microsoft.Data.Sqlite.SqliteConnection" => DatabaseType.SQLite,
+                "Npgsql.NpgsqlConnection" => DatabaseType.PostgreSQL,
+                "MySqlConnector.MySqlConnection" => DatabaseType.MySQL,
+                _ => DatabaseType.None
             };
         }
 
@@ -90,7 +107,7 @@ namespace JJCore.Infra.Data.Factory
         }
 
         /// <summary>
-        /// Generates a sample JJCore parameters file with SQL Server, SQLite, and PostgreSQL entries.
+        /// Generates a sample JJCore parameters file with SQL Server, SQLite, PostgreSQL, and MySQL entries.
         /// </summary>
         /// <param name="filePath">The destination file path.</param>
         public static void GenerateDefaultFile(string filePath = "parameters.json")
@@ -122,11 +139,50 @@ namespace JJCore.Infra.Data.Factory
                         DatabaseType = DatabaseType.PostgreSQL,
                         IsActive = false,
                         IsBase64String = false
+                    },
+                    new ConnectionParameterDto
+                    {
+                        ConnectionName = "Production_MySQL",
+                        ConnectionString = "Server=MY_SERVER;Port=3306;Database=MY_DATABASE;User ID=MY_USER;Password=MY_PASSWORD;SslMode=Required;",
+                        DatabaseType = DatabaseType.MySQL,
+                        IsActive = false,
+                        IsBase64String = false
                     }
                 }
             };
 
             JsonHelper.SaveFile(template, filePath);
+        }
+
+        private static IDbConnection CreateProviderConnection(
+            string connectionString,
+            DatabaseType databaseType,
+            string connectionTypeName,
+            string packageName)
+        {
+            Type? connectionType = Type.GetType(connectionTypeName, throwOnError: false);
+
+            if (connectionType == null)
+            {
+                throw new NotSupportedException(
+                    $"Database provider {databaseType} is not installed. Add the {packageName} package.");
+            }
+
+            object? connection;
+
+            try
+            {
+                connection = Activator.CreateInstance(connectionType, new object[] { connectionString });
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
+
+            return connection as IDbConnection
+                ?? throw new InvalidOperationException(
+                    $"The connection type provided by {packageName} does not implement IDbConnection.");
         }
     }
 }

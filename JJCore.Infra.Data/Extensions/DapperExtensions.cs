@@ -1,10 +1,8 @@
 using Dapper;
 using JJCore.Domain.Attributes;
 using JJCore.Domain.Enums;
+using JJCore.Infra.Data.Factory;
 using JJCore.Infra.Data.Translators;
-using Microsoft.Data.SqlClient;
-using Microsoft.Data.Sqlite;
-using Npgsql;
 using System.Collections.Concurrent;
 using System.Data;
 using System.Globalization;
@@ -239,6 +237,7 @@ namespace JJCore.Infra.Data.Extensions
                 DatabaseType.SQLServer => $"INSERT INTO {tableName} ({cols}) VALUES ({vals}); SELECT CAST(SCOPE_IDENTITY() as int);",
                 DatabaseType.SQLite => $"INSERT INTO {tableName} ({cols}) VALUES ({vals}); SELECT last_insert_rowid();",
                 DatabaseType.PostgreSQL => $"INSERT INTO {tableName} ({cols}) VALUES ({vals}) RETURNING {primaryKeyName};",
+                DatabaseType.MySQL => $"INSERT INTO {tableName} ({cols}) VALUES ({vals}); SELECT LAST_INSERT_ID();",
                 _ => throw new NotSupportedException($"Database {databaseType} is not supported.")
             };
 
@@ -519,13 +518,7 @@ namespace JJCore.Infra.Data.Extensions
         /// <returns>The matching database type, or <see cref="DatabaseType.None"/> when unsupported.</returns>
         public static DatabaseType IdentifyDatabase(this IDbConnection connection)
         {
-            return connection switch
-            {
-                SqlConnection => DatabaseType.SQLServer,
-                SqliteConnection => DatabaseType.SQLite,
-                NpgsqlConnection => DatabaseType.PostgreSQL,
-                _ => DatabaseType.None
-            };
+            return ConnectionFactory.IdentifyDatabase(connection);
         }
 
         private static void EnsureSupportedDatabase(IDbConnection connection)

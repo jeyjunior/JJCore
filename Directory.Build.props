@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Version>1.1.0</Version>
+    <Version>2.0.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>José Junior</Authors>
     <Company>José Junior</Company>
@@ -15,8 +15,9 @@
     <PackageProjectUrl>https://github.com/jeyjunior/JJCore</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Adds an asynchronous Unit of Work and cancellable repository and Dapper operations while preserving the existing APIs.</PackageReleaseNotes>
-    <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase</PackageTags>
+    <PackageReleaseNotes>Separates database providers into dedicated packages while preserving the aggregate package, assembly, namespaces, and public APIs.</PackageReleaseNotes>
+    <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase;mysql;mariadb</PackageTags>
   </PropertyGroup>
 </Project>

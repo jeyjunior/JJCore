@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>JJCore.Infra.Data.MySQL</PackageId>
+    <Title>JJCore.Infra.Data.MySQL</Title>
+    <Description>MySQL and MariaDB provider package for JJCore data infrastructure.</Description>
+    <PackageTags>jjcore;dapper;database;mysql;mariadb;mysqlconnector</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="2.6.1" />
+    <ProjectReference Include="..\JJCore.Infra.Data\JJCore.Infra.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

@@ -25,6 +25,7 @@ namespace JJCore.Infra.Data.Translators
                 DatabaseType.SQLServer => query,
                 DatabaseType.SQLite => query.Replace("[", "").Replace("]", ""),
                 DatabaseType.PostgreSQL => query.Replace("[", "\"").Replace("]", "\""),
+                DatabaseType.MySQL => query.Replace("[", "`").Replace("]", "`"),
                 _ => throw new NotSupportedException($"Database {databaseType} is not supported.")
             };
         }
