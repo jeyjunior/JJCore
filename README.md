@@ -17,19 +17,19 @@ Simple .NET library for database connections and CRUD operations with Dapper.
 Install only the provider used by the application:
 
 ```powershell
-dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.1.0
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.0
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.SqlServer --version 2.1.0
+dotnet add package JJCore.Infra.Data.SqlServer --version 2.2.0
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.SQLite --version 2.1.0
+dotnet add package JJCore.Infra.Data.SQLite --version 2.2.0
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.MySQL --version 2.1.0
+dotnet add package JJCore.Infra.Data.MySQL --version 2.2.0
 ```
 
 Each provider package includes `JJCore.Infra.Data.Core` and `JJCore.Domain` transitively. Projects that use only domain contracts and utilities can reference `JJCore.Domain` directly.
@@ -37,7 +37,7 @@ Each provider package includes `JJCore.Infra.Data.Core` and `JJCore.Domain` tran
 The aggregate package remains available for applications that use multiple providers or need a controlled migration from version 1.x:
 
 ```powershell
-dotnet add package JJCore.Infra.Data --version 2.1.0
+dotnet add package JJCore.Infra.Data --version 2.2.0
 ```
 
 Applications migrating from the aggregate package to a provider-specific package do not need namespace or code changes. Replace the package reference and restore the project.
@@ -59,8 +59,8 @@ dotnet nuget add source D:\path\to\JJCore\artifacts\packages --name JJCoreLocal
 Install the unpublished provider package in a consumer project:
 
 ```powershell
-dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.1.0
-dotnet add package JJCore.Infra.Data.MySQL --version 2.1.0
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.0
+dotnet add package JJCore.Infra.Data.MySQL --version 2.2.0
 ```
 
 The `artifacts/packages` directory is generated locally and is not tracked by Git.
@@ -176,7 +176,8 @@ public class CustomerRepository : Repository<Customer>
 ```
 
 ```csharp
-Customer? customer = await repository.GetAsync(1);
+Customer? customer = await repository.GetByIdAsync(1);
+Customer? byEmail = await repository.GetByConditionAsync("[email] = @Email", new { Email = email });
 IEnumerable<Customer> customers = await repository.GetListAsync();
 
 int newId = await repository.AddAsync(new Customer
@@ -186,6 +187,18 @@ int newId = await repository.AddAsync(new Customer
     Code = 1
 });
 ```
+
+`GetByIdAsync` always treats its argument as a key value, including `string` keys. `GetByConditionAsync` executes its argument as a SQL `WHERE` condition, so always pass values through parameters.
+
+`GetAsync` is obsolete and will be removed in JJCore 3.0. Its `string` overload executes the argument as a `WHERE` condition, so `GetAsync("abc")` on an entity with a `string` key runs `WHERE abc` instead of searching by key. Replace `GetAsync(id)` with `GetByIdAsync(id)` and `GetAsync(condition)` with `GetByConditionAsync(condition)`.
+
+## Custom SQL And Identifiers
+
+Write identifiers with brackets, such as `[email]`, to keep conditions and custom SQL portable. SQL Server and SQLite support brackets natively. For PostgreSQL and MySQL, JJCore converts them to `"email"` and `` `email` ``.
+
+Brackets inside string literals, quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. A bracket that directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such as `ARRAY[1, 2]` or `items[1]`, and is also preserved. Write a space or an operator before bracketed identifiers, as in `WHERE [id] = @Id`.
+
+PostgreSQL treats quoted identifiers as case-sensitive. `[Customers]` becomes `"Customers"`, which does not match a table created as `customers`.
 
 ## Parameters File
 

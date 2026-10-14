@@ -12,8 +12,24 @@ namespace JJCore.Domain.Interfaces.Repository
         /// <summary>
         /// Gets one entity by its primary key value.
         /// </summary>
+        /// <param name="id">The primary key value. String values are always treated as keys, never as SQL.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        Task<TEntity?> GetByIdAsync(object id);
+
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        Task<TEntity?> GetByConditionAsync(string condition, object? parameters = null);
+
+        /// <summary>
+        /// Gets one entity by its primary key value.
+        /// </summary>
         /// <param name="id">The primary key value.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
+        [Obsolete("Use GetByIdAsync. GetAsync will be removed in JJCore 3.0.")]
         Task<TEntity?> GetAsync(object id);
 
         /// <summary>
@@ -22,6 +38,7 @@ namespace JJCore.Domain.Interfaces.Repository
         /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
         /// <param name="parameters">The query parameters.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
+        [Obsolete("A string passed to GetAsync is executed as a WHERE condition, not as a key value. Use GetByConditionAsync for conditions or GetByIdAsync for keys. GetAsync will be removed in JJCore 3.0.")]
         Task<TEntity?> GetAsync(string condition, object? parameters = null);
 
         /// <summary>

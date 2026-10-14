@@ -15,6 +15,13 @@ namespace JJCore.Infra.Data.Extensions
     /// </summary>
     public static class DapperExtensions
     {
+        internal const string GetAsyncByIdObsoleteMessage =
+            "Use GetByIdAsync. GetAsync will be removed in JJCore 3.0.";
+
+        internal const string GetAsyncByConditionObsoleteMessage =
+            "A string passed to GetAsync is executed as a WHERE condition, not as a key value. " +
+            "Use GetByConditionAsync for conditions or GetByIdAsync for keys. GetAsync will be removed in JJCore 3.0.";
+
         private static readonly ConcurrentDictionary<Type, EntityMapping> Mappings = new();
 
         /// <summary>
@@ -22,18 +29,18 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         /// <typeparam name="T">The mapped entity type.</typeparam>
         /// <param name="connection">The database connection.</param>
-        /// <param name="id">The primary key value.</param>
+        /// <param name="id">The primary key value. String values are always treated as keys, never as SQL.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public static Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        public static Task<T?> GetByIdAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
         {
-            return connection.GetAsync<T>(id, transaction, CancellationToken.None);
+            return connection.GetByIdAsync<T>(id, transaction, CancellationToken.None);
         }
 
         /// <summary>
         /// Gets one mapped entity by its primary key value with cancellation support.
         /// </summary>
-        public static async Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
+        public static async Task<T?> GetByIdAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -58,15 +65,15 @@ namespace JJCore.Infra.Data.Extensions
         /// <param name="parameters">The query parameters.</param>
         /// <param name="transaction">The transaction to use, when provided.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public static Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
+        public static Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
         {
-            return connection.GetAsync<T>(condition, parameters, transaction, CancellationToken.None);
+            return connection.GetByConditionAsync<T>(condition, parameters, transaction, CancellationToken.None);
         }
 
         /// <summary>
         /// Gets one mapped entity using a custom WHERE condition with cancellation support.
         /// </summary>
-        public static async Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        public static async Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
 
@@ -84,6 +91,42 @@ namespace JJCore.Infra.Data.Extensions
 
             var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
             return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity by its primary key value.
+        /// </summary>
+        [Obsolete(GetAsyncByIdObsoleteMessage)]
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction = null)
+        {
+            return connection.GetByIdAsync<T>(id, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity by its primary key value with cancellation support.
+        /// </summary>
+        [Obsolete(GetAsyncByIdObsoleteMessage)]
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return connection.GetByIdAsync<T>(id, transaction, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity using a custom WHERE condition.
+        /// </summary>
+        [Obsolete(GetAsyncByConditionObsoleteMessage)]
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return connection.GetByConditionAsync<T>(condition, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one mapped entity using a custom WHERE condition with cancellation support.
+        /// </summary>
+        [Obsolete(GetAsyncByConditionObsoleteMessage)]
+        public static Task<T?> GetAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return connection.GetByConditionAsync<T>(condition, parameters, transaction, cancellationToken);
         }
 
         /// <summary>
@@ -499,7 +542,7 @@ namespace JJCore.Infra.Data.Extensions
             string userColumn = QuoteIdentifier(userProperty.ColumnName);
             string condition = $"{codeColumn} = @Code AND {userColumn} = @UserId";
 
-            return await connection.GetAsync<T>(condition, new { Code = code, UserId = userId }, transaction, cancellationToken).ConfigureAwait(false);
+            return await connection.GetByConditionAsync<T>(condition, new { Code = code, UserId = userId }, transaction, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

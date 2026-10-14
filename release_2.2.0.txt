@@ -1,0 +1,48 @@
+JJCORE 2.2.0 - EXPLICIT ENTITY LOOKUPS AND SQL-AWARE IDENTIFIER TRANSLATION
+
+Context
+This release separates key lookups from condition lookups and makes PostgreSQL and MySQL identifier translation aware of SQL syntax. Existing code keeps compiling. Obsolete members produce compiler warnings.
+
+Entity Lookups
+- GetByIdAsync was added to DapperExtensions, IRepository<TEntity>, ICancellableRepository<TEntity>, and Repository<TEntity>. Its argument is always treated as a primary key value, including string keys.
+- GetByConditionAsync was added to the same types. Its argument is always executed as a SQL WHERE condition.
+- Both methods have overloads with CancellationToken.
+- GetAsync is obsolete and will be removed in JJCore 3.0. Its string overload executes the argument as a WHERE condition, so GetAsync("abc") on an entity with a string key ran WHERE abc instead of a key lookup. When the value came from user input, this allowed SQL injection.
+- The obsolete GetAsync members delegate to the new methods. In Repository<TEntity>, overrides of GetByIdAsync and GetByConditionAsync also apply to GetAsync calls.
+- GetByCodeAsync uses GetByConditionAsync internally.
+
+Migration
+- Replace GetAsync(id) with GetByIdAsync(id).
+- Replace GetAsync(condition) and GetAsync(condition, parameters) with GetByConditionAsync(condition, parameters).
+- Classes that implement IRepository<TEntity> or ICancellableRepository<TEntity> without inheriting from Repository<TEntity> must implement GetByIdAsync and GetByConditionAsync.
+
+Identifier Translation
+- SqlTranslator reads PostgreSQL and MySQL queries before translating bracketed identifiers, such as [Column].
+- Brackets are preserved inside string literals, quoted identifiers, comments, and PostgreSQL dollar-quoted strings.
+- PostgreSQL: E'' strings accept backslash escapes, standard strings do not, and block comments can be nested.
+- MySQL: strings accept backslash escapes, # starts a comment, and -- starts a comment only when followed by whitespace.
+- A bracket that directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript and preserved, such as ARRAY[1, 2], items[1], or (ARRAY[1, 2])[1].
+- Bracketed content is translated only when it looks like an identifier: letters, digits, underscores, spaces, $, and #, with at least one letter or underscore. Accented names, such as [Descrição], are supported.
+- SQL Server and SQLite queries are still returned unchanged.
+
+Behavior Changes
+- PostgreSQL and MySQL: a bracketed identifier written directly after a name, a closing parenthesis, or another bracket, such as WHERE[Id], is no longer translated. Write a space or an operator before it, as in WHERE [Id].
+- PostgreSQL and MySQL: brackets inside literals, comments, and array expressions are no longer converted to identifier quotes. Previously, ARRAY[1,2] became ARRAY"1,2" and '{"a":[1]}' became '{"a":"1"}'.
+
+Documentation
+- README uses GetByIdAsync and GetByConditionAsync and documents the obsolete GetAsync members.
+- README documents bracketed identifiers in custom SQL, the array subscript rule, and PostgreSQL case-sensitive quoted identifiers.
+
+Known Limitation
+- Calling GetByConditionAsync or GetListAsync with a condition and a CancellationToken but without parameters binds to the overload without cancellation, and the token is used as the parameters object. Pass the parameters argument explicitly, using null when there are no parameters, and also the transaction argument when calling DapperExtensions.
+
+Validation
+- dotnet build JJCore.sln -c Release completed with 0 warnings and 0 errors.
+- The compiler reports CS0618 for obsolete GetAsync calls through Repository<TEntity>, the repository interfaces, and DapperExtensions.
+- 31 SqlTranslator cases were verified for PostgreSQL, MySQL, SQL Server, and SQLite.
+- GetByIdAsync and GetByConditionAsync were verified against SQLite with a string key and SQL Server LocalDB with a Guid key. All 2.1.0 scenarios still pass.
+- PostgreSQL and MySQL were not verified against a live server in this release.
+
+Publication
+All generated packages are written to artifacts/packages, which can also be used as a local NuGet source for validation.
+Publish JJCore.Domain and JJCore.Infra.Data.Core before the provider packages. Publish JJCore.Infra.Data.PostgreSQL, JJCore.Infra.Data.SqlServer, JJCore.Infra.Data.SQLite, and JJCore.Infra.Data.MySQL before the aggregate JJCore.Infra.Data package.

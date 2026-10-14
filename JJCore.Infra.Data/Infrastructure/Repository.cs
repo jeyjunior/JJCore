@@ -196,20 +196,20 @@ namespace JJCore.Infra.Data.Infrastructure
         /// <summary>
         /// Gets one entity by its primary key value.
         /// </summary>
-        /// <param name="id">The primary key value.</param>
+        /// <param name="id">The primary key value. String values are always treated as keys, never as SQL.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public virtual async Task<TEntity?> GetAsync(object id)
+        public virtual Task<TEntity?> GetByIdAsync(object id)
         {
-            return await UnitOfWork.Connection.GetAsync<TEntity>(id, UnitOfWork.Transaction);
+            return GetByIdAsync(id, CancellationToken.None);
         }
 
         /// <summary>
         /// Gets one entity by its primary key value with cancellation support.
         /// </summary>
-        public virtual async Task<TEntity?> GetAsync(object id, CancellationToken cancellationToken)
+        public virtual async Task<TEntity?> GetByIdAsync(object id, CancellationToken cancellationToken)
         {
             return await UnitOfWork.Connection
-                .GetAsync<TEntity>(id, UnitOfWork.Transaction, cancellationToken)
+                .GetByIdAsync<TEntity>(id, UnitOfWork.Transaction, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -219,19 +219,55 @@ namespace JJCore.Infra.Data.Infrastructure
         /// <param name="condition">The SQL WHERE condition without the WHERE keyword.</param>
         /// <param name="parameters">The query parameters.</param>
         /// <returns>The entity when found; otherwise, null.</returns>
-        public virtual async Task<TEntity?> GetAsync(string condition, object? parameters = null)
+        public virtual Task<TEntity?> GetByConditionAsync(string condition, object? parameters = null)
         {
-            return await UnitOfWork.Connection.GetAsync<TEntity>(condition, parameters, UnitOfWork.Transaction);
+            return GetByConditionAsync(condition, parameters, CancellationToken.None);
         }
 
         /// <summary>
         /// Gets one entity using a custom WHERE condition with cancellation support.
         /// </summary>
-        public virtual async Task<TEntity?> GetAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        public virtual async Task<TEntity?> GetByConditionAsync(string condition, object? parameters, CancellationToken cancellationToken)
         {
             return await UnitOfWork.Connection
-                .GetAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
+                .GetByConditionAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Gets one entity by its primary key value.
+        /// </summary>
+        [Obsolete(DapperExtensions.GetAsyncByIdObsoleteMessage)]
+        public virtual Task<TEntity?> GetAsync(object id)
+        {
+            return GetByIdAsync(id);
+        }
+
+        /// <summary>
+        /// Gets one entity by its primary key value with cancellation support.
+        /// </summary>
+        [Obsolete(DapperExtensions.GetAsyncByIdObsoleteMessage)]
+        public virtual Task<TEntity?> GetAsync(object id, CancellationToken cancellationToken)
+        {
+            return GetByIdAsync(id, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition.
+        /// </summary>
+        [Obsolete(DapperExtensions.GetAsyncByConditionObsoleteMessage)]
+        public virtual Task<TEntity?> GetAsync(string condition, object? parameters = null)
+        {
+            return GetByConditionAsync(condition, parameters);
+        }
+
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition with cancellation support.
+        /// </summary>
+        [Obsolete(DapperExtensions.GetAsyncByConditionObsoleteMessage)]
+        public virtual Task<TEntity?> GetAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        {
+            return GetByConditionAsync(condition, parameters, cancellationToken);
         }
 
         /// <summary>
