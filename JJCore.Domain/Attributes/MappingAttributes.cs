@@ -6,6 +6,11 @@ namespace JJCore.Domain.Attributes
     [AttributeUsage(AttributeTargets.Property)]
     public class PrimaryKeyAttribute : Attribute
     {
+        /// <summary>
+        /// Gets or sets whether the database generates the key value. Defaults to true.
+        /// When false, the key is included in inserts and must be assigned by the application.
+        /// </summary>
+        public bool DatabaseGenerated { get; set; } = true;
     }
 
     /// <summary>

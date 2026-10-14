@@ -65,7 +65,7 @@ namespace JJCore.Infra.Data.Data
             }
             catch
             {
-                _transaction.Rollback();
+                TryRollback();
                 throw;
             }
             finally
@@ -110,6 +110,17 @@ namespace JJCore.Infra.Data.Data
             _connection.Dispose();
             _disposed = true;
             GC.SuppressFinalize(this);
+        }
+
+        private void TryRollback()
+        {
+            try
+            {
+                _transaction?.Rollback();
+            }
+            catch
+            {
+            }
         }
     }
 }

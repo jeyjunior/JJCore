@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>José Junior</Authors>
     <Company>José Junior</Company>
@@ -17,7 +17,7 @@
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Separates database providers into dedicated packages while preserving the aggregate package, assembly, namespaces, and public APIs.</PackageReleaseNotes>
+    <PackageReleaseNotes>Writes unfilled dates as NULL instead of generating them, adds application-assigned primary keys, fixes SQL Server bigint identity keys and SQLite reserved-word identifiers, preserves the original error when a commit fails, and removes a vulnerable Pkcs dependency from the SQL Server provider.</PackageReleaseNotes>
     <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase;mysql;mariadb</PackageTags>
   </PropertyGroup>
 </Project>
