@@ -1,6 +1,7 @@
 using Dapper;
 using JJCore.Domain.Attributes;
 using JJCore.Domain.Enums;
+using JJCore.Domain.Models;
 using JJCore.Infra.Data.Factory;
 using JJCore.Infra.Data.Translators;
 using System.Collections.Concurrent;
@@ -42,7 +43,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<T?> GetByIdAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
 
             var mapping = GetMapping(typeof(T));
             string tableName = QuoteIdentifier(mapping.TableName);
@@ -73,25 +74,38 @@ namespace JJCore.Infra.Data.Extensions
         /// <summary>
         /// Gets one mapped entity using a custom WHERE condition with cancellation support.
         /// </summary>
-        public static async Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        public static Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
-            using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
+            return GetByConditionCoreAsync<T>(connection, condition, translateCondition: true, parameters, transaction, cancellationToken);
+        }
 
-            if (string.IsNullOrWhiteSpace(condition))
-            {
-                throw new ArgumentException("A WHERE condition is required when searching without an ID.", nameof(condition));
-            }
+        /// <summary>
+        /// Gets one mapped entity using a custom WHERE condition without parameters, with cancellation support.
+        /// </summary>
+        public static Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, CancellationToken cancellationToken)
+        {
+            return GetByConditionCoreAsync<T>(connection, condition, translateCondition: true, null, null, cancellationToken);
+        }
 
-            var mapping = GetMapping(typeof(T));
-            string tableName = QuoteIdentifier(mapping.TableName);
-            string columns = GetSelectColumns(mapping);
-            string sql = $"SELECT {columns} FROM {tableName} WHERE {condition}";
+        /// <summary>
+        /// Gets one mapped entity using a WHERE condition that is sent without identifier translation.
+        /// </summary>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword, written with native identifier quotes.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        public static Task<T?> GetByConditionAsync<T>(this IDbConnection connection, RawSql condition, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return GetByConditionCoreAsync<T>(connection, condition.Text, translateCondition: false, parameters, transaction, CancellationToken.None);
+        }
 
-            sql = SqlTranslator.TranslateQuery(sql, connection.IdentifyDatabase());
-
-            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
-            return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
+        /// <summary>
+        /// Gets one mapped entity using a WHERE condition that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public static Task<T?> GetByConditionAsync<T>(this IDbConnection connection, RawSql condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return GetByConditionCoreAsync<T>(connection, condition.Text, translateCondition: false, parameters, transaction, cancellationToken);
         }
 
         /// <summary>
@@ -147,25 +161,80 @@ namespace JJCore.Infra.Data.Extensions
         /// <summary>
         /// Gets mapped entities using an optional WHERE condition with cancellation support.
         /// </summary>
-        public static async Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        public static Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            return GetListCoreAsync<T>(connection, condition, translateCondition: true, parameters, transaction, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets mapped entities using an optional WHERE condition without parameters, with cancellation support.
+        /// </summary>
+        public static Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition, CancellationToken cancellationToken)
+        {
+            return GetListCoreAsync<T>(connection, condition, translateCondition: true, null, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets mapped entities using a WHERE condition that is sent without identifier translation.
+        /// </summary>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword, written with native identifier quotes.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The matching entities.</returns>
+        public static Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, RawSql condition, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return GetListCoreAsync<T>(connection, condition.Text, translateCondition: false, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets mapped entities using a WHERE condition that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public static Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, RawSql condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return GetListCoreAsync<T>(connection, condition.Text, translateCondition: false, parameters, transaction, cancellationToken);
+        }
+
+        private static async Task<T?> GetByConditionCoreAsync<T>(IDbConnection connection, string? condition, bool translateCondition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            EnsureSupportedDatabase(connection, transaction);
             using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
 
-            var mapping = GetMapping(typeof(T));
-            string tableName = QuoteIdentifier(mapping.TableName);
-            string columns = GetSelectColumns(mapping);
-            string sql = $"SELECT {columns} FROM {tableName}";
-
-            if (!string.IsNullOrWhiteSpace(condition))
+            if (string.IsNullOrWhiteSpace(condition))
             {
-                sql += $" WHERE {condition}";
+                throw new ArgumentException("A WHERE condition is required when searching without an ID.", nameof(condition));
             }
 
-            sql = SqlTranslator.TranslateQuery(sql, connection.IdentifyDatabase());
+            string sql = BuildSelectSql(GetMapping(typeof(T)), condition, translateCondition, connection.IdentifyDatabase());
+
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
+            return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
+        }
+
+        private static async Task<IEnumerable<T>> GetListCoreAsync<T>(IDbConnection connection, string? condition, bool translateCondition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            EnsureSupportedDatabase(connection, transaction);
+            using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
+
+            string sql = BuildSelectSql(GetMapping(typeof(T)), condition, translateCondition, connection.IdentifyDatabase());
 
             var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
             return await connection.QueryAsync<T>(command).ConfigureAwait(false);
+        }
+
+        // The generated SELECT is always translated. A raw condition is appended after translation, so its brackets are kept.
+        private static string BuildSelectSql(EntityMapping mapping, string? condition, bool translateCondition, DatabaseType databaseType)
+        {
+            string sql = $"SELECT {GetSelectColumns(mapping)} FROM {QuoteIdentifier(mapping.TableName)}";
+
+            if (string.IsNullOrWhiteSpace(condition))
+            {
+                return SqlTranslator.TranslateQuery(sql, databaseType);
+            }
+
+            return translateCondition
+                ? SqlTranslator.TranslateQuery($"{sql} WHERE {condition}", databaseType)
+                : $"{SqlTranslator.TranslateQuery(sql, databaseType)} WHERE {condition}";
         }
 
         /// <summary>
@@ -186,7 +255,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<int> AddBatchAsync<T>(this IDbConnection connection, IEnumerable<T> entities, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
 
             var list = entities?.ToList();
             if (list == null || list.Count == 0)
@@ -262,7 +331,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<object?> AddReturningAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
             if (entity == null)
             {
                 throw new ArgumentNullException(nameof(entity));
@@ -290,26 +359,19 @@ namespace JJCore.Infra.Data.Extensions
             }
 
             var parameters = CreateParameters(entity, mapping.InsertProperties, databaseType);
-            string primaryKeyName = QuoteIdentifier(mapping.PrimaryKey.ColumnName);
-            string identityType = GetSqlServerIdentityType(mapping.PrimaryKey.Property.PropertyType);
-            string sql = databaseType switch
-            {
-                DatabaseType.SQLServer => $"{insertSql}; SELECT CAST(SCOPE_IDENTITY() AS {identityType});",
-                DatabaseType.SQLite => $"{insertSql}; SELECT last_insert_rowid();",
-                DatabaseType.PostgreSQL => $"{insertSql} RETURNING {primaryKeyName};",
-                DatabaseType.MySQL => $"{insertSql}; SELECT LAST_INSERT_ID();",
-                _ => throw new NotSupportedException($"Database {databaseType} is not supported.")
-            };
+            string sql = BuildInsertReturningKeySql(mapping, databaseType);
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
             var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
             object? result = await connection.ExecuteScalarAsync<object>(command).ConfigureAwait(false);
 
-            if (result == null || result == DBNull.Value)
+            // MySQL returns 0 when the INSERT generated no AUTO_INCREMENT value, because LAST_INSERT_ID is reset before it.
+            if (result == null || result == DBNull.Value ||
+                (databaseType == DatabaseType.MySQL && Convert.ToDecimal(result, CultureInfo.InvariantCulture) == 0))
             {
                 throw new InvalidOperationException(
-                    $"The database did not return a generated key for {mapping.Type.Name}. " +
+                    $"The database did not return a generated key for {mapping.Type.Name}. The INSERT was executed, so the row may have been saved. " +
                     "Use [PrimaryKey(DatabaseGenerated = false)] when the application assigns the key value.");
             }
 
@@ -334,7 +396,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<int> UpdateAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
             if (entity == null)
             {
                 throw new ArgumentNullException(nameof(entity));
@@ -355,7 +417,7 @@ namespace JJCore.Infra.Data.Extensions
             var updateColumns = mapping.WritableProperties
                 .Select(p => $"{QuoteIdentifier(p.ColumnName)} = @{p.Property.Name}");
 
-            string keyParameterName = GetKeyParameterName(mapping.WritableProperties);
+            string keyParameterName = GetUniqueParameterName("JJCorePrimaryKey", mapping.WritableProperties);
             parameters.Add(keyParameterName, primaryKeyValue);
 
             string tableName = QuoteIdentifier(mapping.TableName);
@@ -393,7 +455,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<int> DeleteAsync<T>(this IDbConnection connection, object id, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
 
             var databaseType = connection.IdentifyDatabase();
             var mapping = GetMapping(typeof(T));
@@ -431,7 +493,7 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<int> DeleteAllAsync<T>(this IDbConnection connection, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
 
             var databaseType = connection.IdentifyDatabase();
             var mapping = GetMapping(typeof(T));
@@ -460,9 +522,43 @@ namespace JJCore.Infra.Data.Extensions
         /// <summary>
         /// Executes a custom SQL command with cancellation support.
         /// </summary>
-        public static async Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        public static Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            return ExecuteQueryCoreAsync(connection, query, translateQuery: true, parameters, transaction, cancellationToken);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command without parameters, with cancellation support.
+        /// </summary>
+        public static Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, CancellationToken cancellationToken)
+        {
+            return ExecuteQueryCoreAsync(connection, query, translateQuery: true, null, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command that is sent without identifier translation.
+        /// </summary>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="query">The SQL command to execute, written with native identifier quotes.</param>
+        /// <param name="parameters">The command parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
+        public static Task<int> ExecuteQueryAsync(this IDbConnection connection, RawSql query, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return ExecuteQueryCoreAsync(connection, query.Text, translateQuery: false, parameters, transaction, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public static Task<int> ExecuteQueryAsync(this IDbConnection connection, RawSql query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return ExecuteQueryCoreAsync(connection, query.Text, translateQuery: false, parameters, transaction, cancellationToken);
+        }
+
+        private static async Task<int> ExecuteQueryCoreAsync(IDbConnection connection, string? query, bool translateQuery, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            EnsureSupportedDatabase(connection, transaction);
             using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
 
             if (string.IsNullOrWhiteSpace(query))
@@ -470,9 +566,9 @@ namespace JJCore.Infra.Data.Extensions
                 throw new ArgumentException("Query cannot be null or empty.", nameof(query));
             }
 
-            query = SqlTranslator.TranslateQuery(query, connection.IdentifyDatabase());
+            string sql = translateQuery ? SqlTranslator.TranslateQuery(query!, connection.IdentifyDatabase()) : query!;
 
-            var command = new CommandDefinition(query, parameters, transaction, cancellationToken: cancellationToken);
+            var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
             return await connection.ExecuteAsync(command).ConfigureAwait(false);
         }
 
@@ -496,7 +592,7 @@ namespace JJCore.Infra.Data.Extensions
         /// <returns>The next available code. The value is not reserved atomically and can collide under concurrent calls.</returns>
         public static async Task<long> GetNextCodeAsync<T>(this IDbConnection connection, long userId, long initialValue, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
-            EnsureSupportedDatabase(connection);
+            EnsureSupportedDatabase(connection, transaction);
 
             var databaseType = connection.IdentifyDatabase();
             var mapping = GetMapping(typeof(T));
@@ -585,11 +681,27 @@ namespace JJCore.Infra.Data.Extensions
             return ConnectionFactory.IdentifyDatabase(connection);
         }
 
-        private static void EnsureSupportedDatabase(IDbConnection connection)
+        private static void EnsureSupportedDatabase(IDbConnection connection, IDbTransaction? transaction = null)
         {
-            if (connection.IdentifyDatabase() == DatabaseType.None)
+            var databaseType = connection.IdentifyDatabase();
+
+            if (databaseType == DatabaseType.None)
             {
                 throw new NotSupportedException($"Connection type {connection.GetType().Name} is not supported.");
+            }
+
+            if (databaseType == DatabaseType.SQLite)
+            {
+                JJCoreTypeHandlers.EnsureSQLiteGuidHandler();
+            }
+
+            // A transaction without connection was committed, rolled back, or ended by the server. SqlClient would run the
+            // command in autocommit mode instead of failing, so the command could not be undone.
+            if (transaction != null && transaction.Connection == null)
+            {
+                throw new InvalidOperationException(
+                    "The transaction is no longer usable: it was committed, rolled back, or ended by the database server. " +
+                    "Roll back the unit of work and start a new transaction.");
             }
         }
 
@@ -635,16 +747,24 @@ namespace JJCore.Infra.Data.Extensions
                     continue;
                 }
 
+                // Without a type, SqlClient sends DateTime as the legacy datetime type, which rounds to 1/300 second and
+                // rejects dates before 1753, even for datetime2 and date columns.
+                if (value is DateTime && databaseType == DatabaseType.SQLServer)
+                {
+                    parameters.Add(property.Property.Name, value, DbType.DateTime2);
+                    continue;
+                }
+
                 parameters.Add(property.Property.Name, value);
             }
 
             return parameters;
         }
 
-        // The key parameter must not share a name with a written property: an ordinary property named Id would receive the key value.
-        private static string GetKeyParameterName(IReadOnlyList<MappedProperty> properties)
+        // Names that JJCore adds to a command must not match a written property: an ordinary property named Id would
+        // otherwise receive the key value in UpdateAsync.
+        private static string GetUniqueParameterName(string baseName, IReadOnlyList<MappedProperty> properties)
         {
-            const string baseName = "JJCorePrimaryKey";
             string name = baseName;
 
             for (int suffix = 1; properties.Any(p => p.Property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)); suffix++)
@@ -659,8 +779,9 @@ namespace JJCore.Infra.Data.Extensions
         {
             var value = property.GetValue(entity);
 
-            // An unfilled DateTime (default value) is written as NULL; JJCore never generates dates.
-            if (value is DateTime dateTime && dateTime == DateTime.MinValue)
+            // An unfilled DateTime or DateTimeOffset (default value) is written as NULL; JJCore never generates dates.
+            if ((value is DateTime dateTime && dateTime == DateTime.MinValue) ||
+                (value is DateTimeOffset dateTimeOffset && dateTimeOffset == DateTimeOffset.MinValue))
             {
                 value = null;
             }
@@ -673,13 +794,70 @@ namespace JJCore.Infra.Data.Extensions
             return value;
         }
 
-        private static string BuildInsertSql(EntityMapping mapping)
+        private static string BuildInsertSql(EntityMapping mapping, string? outputClause = null)
         {
             string tableName = QuoteIdentifier(mapping.TableName);
             string columns = string.Join(", ", mapping.InsertProperties.Select(p => QuoteIdentifier(p.ColumnName)));
             string values = string.Join(", ", mapping.InsertProperties.Select(p => "@" + p.Property.Name));
+            string output = outputClause == null ? string.Empty : outputClause + " ";
 
-            return $"INSERT INTO {tableName} ({columns}) VALUES ({values})";
+            return $"INSERT INTO {tableName} ({columns}) {output}VALUES ({values})";
+        }
+
+        private static string BuildInsertReturningKeySql(EntityMapping mapping, DatabaseType databaseType)
+        {
+            string insertSql = BuildInsertSql(mapping);
+            string primaryKeyName = QuoteIdentifier(mapping.PrimaryKey.ColumnName);
+            Type keyType = Nullable.GetUnderlyingType(mapping.PrimaryKey.Property.PropertyType) ?? mapping.PrimaryKey.Property.PropertyType;
+
+            switch (databaseType)
+            {
+                case DatabaseType.SQLServer:
+                    // SCOPE_IDENTITY() only knows IDENTITY columns. Guid and string keys come from a DEFAULT, so they are read
+                    // with OUTPUT ... INTO, which also works on tables with triggers (OUTPUT without INTO does not).
+                    string? keyColumnType = keyType == typeof(Guid) ? "uniqueidentifier" : keyType == typeof(string) ? "nvarchar(max)" : null;
+
+                    if (keyColumnType == null)
+                    {
+                        return $"{insertSql}; SELECT CAST(SCOPE_IDENTITY() AS {GetSqlServerIdentityType(keyType)});";
+                    }
+
+                    string keyTable = "@" + GetUniqueParameterName("JJCoreKeys", mapping.InsertProperties);
+                    string outputInsert = BuildInsertSql(mapping, $"OUTPUT INSERTED.{primaryKeyName} INTO {keyTable}");
+                    return $"DECLARE {keyTable} TABLE ([Key] {keyColumnType}); {outputInsert}; SELECT [Key] FROM {keyTable};";
+
+                case DatabaseType.SQLite:
+                    // last_insert_rowid() returns the internal rowid, which is the key only for INTEGER PRIMARY KEY.
+                    return $"{insertSql} RETURNING {primaryKeyName};";
+
+                case DatabaseType.PostgreSQL:
+                    return $"{insertSql} RETURNING {primaryKeyName};";
+
+                case DatabaseType.MySQL:
+                    // MySQL can only return AUTO_INCREMENT values. LAST_INSERT_ID() keeps the last value generated by the
+                    // session, from any table, so it is reset first and a 0 result means that no key was generated.
+                    if (!IsNumericType(keyType))
+                    {
+                        throw new InvalidOperationException(
+                            $"MySQL cannot return a key generated by a column default or trigger for {mapping.Type.Name}.{mapping.PrimaryKey.Property.Name}. " +
+                            "No row was inserted. Generate the key in the application and use [PrimaryKey(DatabaseGenerated = false)].");
+                    }
+
+                    return $"DO LAST_INSERT_ID(0); {insertSql}; SELECT LAST_INSERT_ID();";
+
+                default:
+                    throw new NotSupportedException($"Database {databaseType} is not supported.");
+            }
+        }
+
+        private static bool IsNumericType(Type type)
+        {
+            return Type.GetTypeCode(type) switch
+            {
+                TypeCode.Byte or TypeCode.SByte or TypeCode.Int16 or TypeCode.UInt16 or TypeCode.Int32 or TypeCode.UInt32 or
+                TypeCode.Int64 or TypeCode.UInt64 or TypeCode.Decimal => true,
+                _ => false
+            };
         }
 
         private static object GetAssignedPrimaryKey<T>(T entity, EntityMapping mapping)
@@ -744,9 +922,10 @@ namespace JJCore.Infra.Data.Extensions
 
         private static EntityMapping CreateMapping(Type type)
         {
-            // Static properties and indexers are never columns.
+            // Static properties, indexers, and computed properties are not columns. [Column] keeps a computed property mapped.
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<NotMappedAttribute>() == null)
+                .Where(p => p.GetCustomAttribute<ColumnAttribute>() != null || IsStoredProperty(p))
                 .Select(p => new MappedProperty(p, GetColumnName(p)))
                 .ToList();
 
@@ -785,6 +964,28 @@ namespace JJCore.Infra.Data.Extensions
                 : new[] { primaryKey }.Concat(writableProperties).ToList();
 
             return new EntityMapping(type, tableName!, primaryKey, isPrimaryKeyDatabaseGenerated, properties, insertProperties, writableProperties);
+        }
+
+        // A property is stored when it has a setter of any visibility or a backing field generated by the compiler, which
+        // Dapper fills for get-only auto-properties. A property with only a getter body, such as FullName => First + Last,
+        // is computed. Private setters declared in a base class are only visible through the declaring type.
+        private static bool IsStoredProperty(PropertyInfo property)
+        {
+            const BindingFlags DeclaredMembers = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+            for (var type = property.DeclaringType; type != null; type = type.BaseType)
+            {
+                var declared = type.GetProperty(property.Name, DeclaredMembers, null, property.PropertyType, Type.EmptyTypes, null);
+
+                if (declared?.SetMethod != null ||
+                    type.GetField($"<{property.Name}>k__BackingField", DeclaredMembers) != null ||
+                    type.GetField("_" + property.Name, DeclaredMembers) != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string GetColumnName(PropertyInfo property)

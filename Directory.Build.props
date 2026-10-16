@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Version>2.2.1</Version>
+    <Version>2.3.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>José Junior</Authors>
     <Company>José Junior</Company>
@@ -17,7 +17,7 @@
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Fixes UpdateAsync writing the key value into a non-key property named Id, NULL byte[] values on SQL Server, cancellation tokens passed without a parameters argument, indexers and static properties mapped as columns, cancelled tokens ignored by AsyncUnitOfWork, MySQL bracket translation after a word and in executable comments, and .NET Framework builds with the SQLite package.</PackageReleaseNotes>
+    <PackageReleaseNotes>Returns database-generated Guid and string keys on SQL Server and SQLite, and rejects them before the insert on MySQL instead of returning another row's key. Reads Guid values on SQLite, rejects transactions ended by the server, sends DateTime as datetime2 on SQL Server, ignores computed properties, writes unfilled DateTimeOffset as NULL, and adds RawSql, Repository.DeleteAsync(object), condition-and-token overloads, and an optional UTC reader for DateTimeOffset on MySQL.</PackageReleaseNotes>
     <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase;mysql;mariadb</PackageTags>
   </PropertyGroup>
 </Project>

@@ -43,18 +43,23 @@ namespace JJCore.Domain.Extensions
         }
 
         /// <summary>
-        /// Normalizes a multiline SQL string by trimming non-empty lines.
+        /// Normalizes a multiline SQL string by trimming each line and removing blank lines.
         /// </summary>
-        /// <param name="input">The SQL text to normalize.</param>
-        /// <returns>The normalized SQL text.</returns>
+        /// <param name="input">The SQL text to normalize. CRLF, LF, and CR line breaks are accepted.</param>
+        /// <returns>The normalized SQL text, with each line ending in <see cref="Environment.NewLine"/>.</returns>
         public static string ToSql(this string input)
         {
             var stringBuilder = new StringBuilder();
-            string[] lines = input.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] lines = input.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
 
             foreach (string line in lines)
             {
-                stringBuilder.AppendLine(line.Trim());
+                string trimmed = line.Trim();
+
+                if (trimmed.Length > 0)
+                {
+                    stringBuilder.AppendLine(trimmed);
+                }
             }
 
             return stringBuilder.ToString();

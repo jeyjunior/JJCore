@@ -1,5 +1,6 @@
 using JJCore.Domain.Enums;
 using JJCore.Domain.Interfaces.Repository;
+using JJCore.Domain.Models;
 using JJCore.Infra.Data.Extensions;
 using System.Data;
 
@@ -152,6 +153,27 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Deletes one entity by a primary key of any type, such as Guid or string.
+        /// </summary>
+        /// <param name="id">The primary key value.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
+        public virtual async Task<int> DeleteAsync(object id, IDbTransaction? transaction = null)
+        {
+            return await UnitOfWork.Connection.DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Deletes one entity by a primary key of any type with cancellation support.
+        /// </summary>
+        public virtual async Task<int> DeleteAsync(object id, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .DeleteAsync<TEntity>(id, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Deletes all rows from the mapped table.
         /// </summary>
         /// <param name="transaction">The transaction to use, when provided.</param>
@@ -194,6 +216,36 @@ namespace JJCore.Infra.Data.Infrastructure
         }
 
         /// <summary>
+        /// Executes a custom SQL command without parameters, with cancellation support.
+        /// </summary>
+        public virtual Task<int> ExecuteQueryAsync(string query, CancellationToken cancellationToken)
+        {
+            return ExecuteQueryAsync(query, null, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command that is sent without identifier translation.
+        /// </summary>
+        /// <param name="query">The SQL command to execute, written with native identifier quotes.</param>
+        /// <param name="parameters">The command parameters.</param>
+        /// <param name="transaction">The transaction to use, when provided.</param>
+        /// <returns>The number of affected rows.</returns>
+        public virtual async Task<int> ExecuteQueryAsync(RawSql query, object? parameters = null, IDbTransaction? transaction = null)
+        {
+            return await UnitOfWork.Connection.ExecuteQueryAsync(query, parameters, transaction ?? UnitOfWork.Transaction);
+        }
+
+        /// <summary>
+        /// Executes a custom SQL command that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public virtual async Task<int> ExecuteQueryAsync(RawSql query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .ExecuteQueryAsync(query, parameters, transaction ?? UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Gets one entity by its primary key value.
         /// </summary>
         /// <param name="id">The primary key value. String values are always treated as keys, never as SQL.</param>
@@ -228,6 +280,35 @@ namespace JJCore.Infra.Data.Infrastructure
         /// Gets one entity using a custom WHERE condition with cancellation support.
         /// </summary>
         public virtual async Task<TEntity?> GetByConditionAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetByConditionAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Gets one entity using a custom WHERE condition without parameters, with cancellation support.
+        /// </summary>
+        public virtual Task<TEntity?> GetByConditionAsync(string condition, CancellationToken cancellationToken)
+        {
+            return GetByConditionAsync(condition, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets one entity using a WHERE condition that is sent without identifier translation.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword, written with native identifier quotes.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <returns>The entity when found; otherwise, null.</returns>
+        public virtual Task<TEntity?> GetByConditionAsync(RawSql condition, object? parameters = null)
+        {
+            return GetByConditionAsync(condition, parameters, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets one entity using a WHERE condition that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public virtual async Task<TEntity?> GetByConditionAsync(RawSql condition, object? parameters, CancellationToken cancellationToken)
         {
             return await UnitOfWork.Connection
                 .GetByConditionAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
@@ -285,6 +366,35 @@ namespace JJCore.Infra.Data.Infrastructure
         /// Gets a list of entities using an optional WHERE condition with cancellation support.
         /// </summary>
         public virtual async Task<IEnumerable<TEntity>> GetListAsync(string condition, object? parameters, CancellationToken cancellationToken)
+        {
+            return await UnitOfWork.Connection
+                .GetListAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Gets a list of entities using an optional WHERE condition without parameters, with cancellation support.
+        /// </summary>
+        public virtual Task<IEnumerable<TEntity>> GetListAsync(string condition, CancellationToken cancellationToken)
+        {
+            return GetListAsync(condition, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets a list of entities using a WHERE condition that is sent without identifier translation.
+        /// </summary>
+        /// <param name="condition">The SQL WHERE condition without the WHERE keyword, written with native identifier quotes.</param>
+        /// <param name="parameters">The query parameters.</param>
+        /// <returns>The matching entities.</returns>
+        public virtual Task<IEnumerable<TEntity>> GetListAsync(RawSql condition, object? parameters = null)
+        {
+            return GetListAsync(condition, parameters, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Gets a list of entities using a WHERE condition that is sent without identifier translation, with cancellation support.
+        /// </summary>
+        public virtual async Task<IEnumerable<TEntity>> GetListAsync(RawSql condition, object? parameters, CancellationToken cancellationToken)
         {
             return await UnitOfWork.Connection
                 .GetListAsync<TEntity>(condition, parameters, UnitOfWork.Transaction, cancellationToken)
