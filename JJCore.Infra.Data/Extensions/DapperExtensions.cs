@@ -76,6 +76,7 @@ namespace JJCore.Infra.Data.Extensions
         public static async Task<T?> GetByConditionAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
+            using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
 
             if (string.IsNullOrWhiteSpace(condition))
             {
@@ -149,6 +150,7 @@ namespace JJCore.Infra.Data.Extensions
         public static async Task<IEnumerable<T>> GetListAsync<T>(this IDbConnection connection, string condition, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
+            using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
 
             var mapping = GetMapping(typeof(T));
             string tableName = QuoteIdentifier(mapping.TableName);
@@ -205,7 +207,7 @@ namespace JJCore.Infra.Data.Extensions
                 }
             }
 
-            var parameters = list.Select(entity => CreateParameters(entity, mapping.InsertProperties)).ToList();
+            var parameters = list.Select(entity => CreateParameters(entity, mapping.InsertProperties, databaseType)).ToList();
             string sql = SqlTranslator.TranslateQuery(BuildInsertSql(mapping), databaseType);
 
             var command = new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken);
@@ -279,7 +281,7 @@ namespace JJCore.Infra.Data.Extensions
 
                 var insertCommand = new CommandDefinition(
                     SqlTranslator.TranslateQuery(insertSql, databaseType),
-                    CreateParameters(entity, mapping.InsertProperties),
+                    CreateParameters(entity, mapping.InsertProperties, databaseType),
                     transaction,
                     cancellationToken: cancellationToken);
                 await connection.ExecuteAsync(insertCommand).ConfigureAwait(false);
@@ -287,7 +289,7 @@ namespace JJCore.Infra.Data.Extensions
                 return primaryKeyValue;
             }
 
-            var parameters = CreateParameters(entity, mapping.InsertProperties);
+            var parameters = CreateParameters(entity, mapping.InsertProperties, databaseType);
             string primaryKeyName = QuoteIdentifier(mapping.PrimaryKey.ColumnName);
             string identityType = GetSqlServerIdentityType(mapping.PrimaryKey.Property.PropertyType);
             string sql = databaseType switch
@@ -349,15 +351,16 @@ namespace JJCore.Infra.Data.Extensions
                 throw new InvalidOperationException($"Primary key {mapping.PrimaryKey.Property.Name} was not filled.");
             }
 
-            var parameters = CreateParameters(entity, mapping.WritableProperties);
+            var parameters = CreateParameters(entity, mapping.WritableProperties, databaseType);
             var updateColumns = mapping.WritableProperties
                 .Select(p => $"{QuoteIdentifier(p.ColumnName)} = @{p.Property.Name}");
 
-            parameters.Add("Id", primaryKeyValue);
+            string keyParameterName = GetKeyParameterName(mapping.WritableProperties);
+            parameters.Add(keyParameterName, primaryKeyValue);
 
             string tableName = QuoteIdentifier(mapping.TableName);
             string primaryKeyName = QuoteIdentifier(mapping.PrimaryKey.ColumnName);
-            string sql = $"UPDATE {tableName} SET {string.Join(", ", updateColumns)} WHERE {primaryKeyName} = @Id";
+            string sql = $"UPDATE {tableName} SET {string.Join(", ", updateColumns)} WHERE {primaryKeyName} = @{keyParameterName}";
 
             sql = SqlTranslator.TranslateQuery(sql, databaseType);
 
@@ -460,6 +463,7 @@ namespace JJCore.Infra.Data.Extensions
         public static async Task<int> ExecuteQueryAsync(this IDbConnection connection, string query, object? parameters, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
             EnsureSupportedDatabase(connection);
+            using var linkedCancellation = UnwrapCancellationToken(ref parameters, ref cancellationToken);
 
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -589,16 +593,66 @@ namespace JJCore.Infra.Data.Extensions
             }
         }
 
-        private static DynamicParameters CreateParameters<T>(T entity, IReadOnlyList<MappedProperty> properties)
+        // A CancellationToken passed where the parameters object is expected, as in GetListAsync(condition, token), binds to
+        // the overload without cancellation. It is used as the cancellation token instead of being sent as SQL parameters.
+        private static CancellationTokenSource? UnwrapCancellationToken(ref object? parameters, ref CancellationToken cancellationToken)
+        {
+            if (parameters is not CancellationToken parametersToken)
+            {
+                return null;
+            }
+
+            parameters = null;
+
+            if (!parametersToken.CanBeCanceled)
+            {
+                return null;
+            }
+
+            if (!cancellationToken.CanBeCanceled)
+            {
+                cancellationToken = parametersToken;
+                return null;
+            }
+
+            var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, parametersToken);
+            cancellationToken = linkedSource.Token;
+            return linkedSource;
+        }
+
+        private static DynamicParameters CreateParameters<T>(T entity, IReadOnlyList<MappedProperty> properties, DatabaseType databaseType)
         {
             var parameters = new DynamicParameters();
 
             foreach (var property in properties)
             {
-                parameters.Add(property.Property.Name, GetPreparedValue(entity, property.Property));
+                var value = GetPreparedValue(entity, property.Property);
+
+                // Without a type, SQL Server receives NULL as nvarchar, which it does not convert to varbinary.
+                if (value == null && databaseType == DatabaseType.SQLServer && property.Property.PropertyType == typeof(byte[]))
+                {
+                    parameters.Add(property.Property.Name, null, DbType.Binary);
+                    continue;
+                }
+
+                parameters.Add(property.Property.Name, value);
             }
 
             return parameters;
+        }
+
+        // The key parameter must not share a name with a written property: an ordinary property named Id would receive the key value.
+        private static string GetKeyParameterName(IReadOnlyList<MappedProperty> properties)
+        {
+            const string baseName = "JJCorePrimaryKey";
+            string name = baseName;
+
+            for (int suffix = 1; properties.Any(p => p.Property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)); suffix++)
+            {
+                name = baseName + suffix.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return name;
         }
 
         private static object? GetPreparedValue<T>(T entity, PropertyInfo property)
@@ -690,8 +744,9 @@ namespace JJCore.Infra.Data.Extensions
 
         private static EntityMapping CreateMapping(Type type)
         {
-            var properties = type.GetProperties()
-                .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
+            // Static properties and indexers are never columns.
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<NotMappedAttribute>() == null)
                 .Select(p => new MappedProperty(p, GetColumnName(p)))
                 .ToList();
 

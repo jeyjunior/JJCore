@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Version>2.2.0</Version>
+    <Version>2.2.1</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>José Junior</Authors>
     <Company>José Junior</Company>
@@ -17,7 +17,7 @@
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Adds GetByIdAsync and GetByConditionAsync and marks GetAsync as obsolete, because its string overload executed key values as SQL. PostgreSQL and MySQL identifier translation now preserves string literals, comments, dollar-quoted strings, and array expressions.</PackageReleaseNotes>
+    <PackageReleaseNotes>Fixes UpdateAsync writing the key value into a non-key property named Id, NULL byte[] values on SQL Server, cancellation tokens passed without a parameters argument, indexers and static properties mapped as columns, cancelled tokens ignored by AsyncUnitOfWork, MySQL bracket translation after a word and in executable comments, and .NET Framework builds with the SQLite package.</PackageReleaseNotes>
     <PackageTags>jjcore;dapper;database;sqlserver;sqlite;postgresql;supabase;mysql;mariadb</PackageTags>
   </PropertyGroup>
 </Project>

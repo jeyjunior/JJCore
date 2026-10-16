@@ -13,9 +13,10 @@ namespace JJCore.Infra.Data.Translators
         /// </summary>
         /// <remarks>
         /// SQL Server and SQLite queries are returned unchanged. For PostgreSQL and MySQL, brackets inside string literals,
-        /// quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. A bracket that directly follows
-        /// an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such as ARRAY[1, 2]
-        /// or items[1], and is also preserved.
+        /// quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. In PostgreSQL, a bracket that
+        /// directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such
+        /// as ARRAY[1, 2] or items[1], and is also preserved. MySQL has no arrays, so brackets are translated after any
+        /// character, as in WHERE[Id], and inside executable comments, such as /*!80000 ... */.
         /// </remarks>
         /// <param name="query">The SQL query to translate.</param>
         /// <param name="databaseType">The target database provider.</param>
@@ -43,7 +44,7 @@ namespace JJCore.Infra.Data.Translators
 
             while (index < query.Length)
             {
-                if (query[index] == '[' && TryFindBracketIdentifierEnd(query, index, out int closeIndex))
+                if (query[index] == '[' && TryFindBracketIdentifierEnd(query, index, isMySql, out int closeIndex))
                 {
                     builder.Append(quote).Append(query, index + 1, closeIndex - index - 1).Append(quote);
                     index = closeIndex + 1;
@@ -76,6 +77,19 @@ namespace JJCore.Infra.Data.Translators
 
             if (current == '/' && next == '*')
             {
+                // MySQL executes the content of /*! ... */ and /*!80000 ... */, so only the opening marker is skipped.
+                if (isMySql && index + 2 < query.Length && query[index + 2] == '!')
+                {
+                    int markerEnd = index + 3;
+
+                    while (markerEnd < query.Length && char.IsDigit(query[markerEnd]))
+                    {
+                        markerEnd++;
+                    }
+
+                    return markerEnd;
+                }
+
                 return GetBlockCommentEnd(query, index, allowNesting: !isMySql);
             }
 
@@ -103,11 +117,12 @@ namespace JJCore.Infra.Data.Translators
             return index + 1;
         }
 
-        private static bool TryFindBracketIdentifierEnd(string query, int openIndex, out int closeIndex)
+        private static bool TryFindBracketIdentifierEnd(string query, int openIndex, bool isMySql, out int closeIndex)
         {
             closeIndex = -1;
 
-            if (openIndex > 0 && IsSubscriptPrefix(query[openIndex - 1]))
+            // Array subscripts exist only in PostgreSQL; in MySQL a bracket outside literals is never valid syntax.
+            if (!isMySql && openIndex > 0 && IsSubscriptPrefix(query[openIndex - 1]))
             {
                 return false;
             }

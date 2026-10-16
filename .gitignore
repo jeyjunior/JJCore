@@ -365,3 +365,6 @@ FodyWeavers.xsd
 /alteracoes_postgresql.txt
 /Documentos/NecessidadesJJCore.md
 /artifacts/
+
+# Aplicacoes de teste locais (fora do repositorio)
+/Projeto/

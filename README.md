@@ -17,19 +17,19 @@ Simple .NET library for database connections and CRUD operations with Dapper.
 Install only the provider used by the application:
 
 ```powershell
-dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.0
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.1
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.SqlServer --version 2.2.0
+dotnet add package JJCore.Infra.Data.SqlServer --version 2.2.1
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.SQLite --version 2.2.0
+dotnet add package JJCore.Infra.Data.SQLite --version 2.2.1
 ```
 
 ```powershell
-dotnet add package JJCore.Infra.Data.MySQL --version 2.2.0
+dotnet add package JJCore.Infra.Data.MySQL --version 2.2.1
 ```
 
 Each provider package includes `JJCore.Infra.Data.Core` and `JJCore.Domain` transitively. Projects that use only domain contracts and utilities can reference `JJCore.Domain` directly.
@@ -37,10 +37,22 @@ Each provider package includes `JJCore.Infra.Data.Core` and `JJCore.Domain` tran
 The aggregate package remains available for applications that use multiple providers or need a controlled migration from version 1.x:
 
 ```powershell
-dotnet add package JJCore.Infra.Data --version 2.2.0
+dotnet add package JJCore.Infra.Data --version 2.2.1
 ```
 
 Applications migrating from the aggregate package to a provider-specific package do not need namespace or code changes. Replace the package reference and restore the project.
+
+### SQLite On .NET Framework
+
+The native SQLite library is selected by process architecture. An `AnyCPU` .NET Framework executable runs as 64-bit, but the SDK copies only the x86 native library to its output, so the first connection fails with `Library e_sqlite3 not found`. This comes from `Microsoft.Data.Sqlite` and `SQLitePCLRaw`, not from JJCore. Set one of these properties in the executable project:
+
+```xml
+<PlatformTarget>x64</PlatformTarget>
+<!-- or -->
+<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+```
+
+xUnit test projects on .NET Framework also need `"shadowCopy": false` in `xunit.runner.json`, or a `RuntimeIdentifier`, because shadow copying moves the test assembly away from the native library.
 
 ## Local Package Validation
 
@@ -59,8 +71,8 @@ dotnet nuget add source D:\path\to\JJCore\artifacts\packages --name JJCoreLocal
 Install the unpublished provider package in a consumer project:
 
 ```powershell
-dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.0
-dotnet add package JJCore.Infra.Data.MySQL --version 2.2.0
+dotnet add package JJCore.Infra.Data.PostgreSQL --version 2.2.1
+dotnet add package JJCore.Infra.Data.MySQL --version 2.2.1
 ```
 
 The `artifacts/packages` directory is generated locally and is not tracked by Git.
@@ -99,7 +111,7 @@ public class Customer
 }
 ```
 
-Use `[Column("column_name")]` when the C# property name is different from the database column name. Use `[NotMapped]` for properties that do not exist in the table.
+Use `[Column("column_name")]` when the C# property name is different from the database column name. Use `[NotMapped]` for properties that do not exist in the table. Static properties and indexers are never mapped.
 
 ## Primary Keys
 
@@ -196,7 +208,7 @@ int newId = await repository.AddAsync(new Customer
 
 Write identifiers with brackets, such as `[email]`, to keep conditions and custom SQL portable. SQL Server and SQLite support brackets natively. For PostgreSQL and MySQL, JJCore converts them to `"email"` and `` `email` ``.
 
-Brackets inside string literals, quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. A bracket that directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such as `ARRAY[1, 2]` or `items[1]`, and is also preserved. Write a space or an operator before bracketed identifiers, as in `WHERE [id] = @Id`.
+Brackets inside string literals, quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. In PostgreSQL, a bracket that directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such as `ARRAY[1, 2]` or `items[1]`, and is also preserved, so write a space or an operator before bracketed identifiers, as in `WHERE [id] = @Id`. MySQL has no arrays: brackets are translated after any character, as in `WHERE[id]`, and also inside executable comments, such as `/*!80000 ... */`.
 
 PostgreSQL treats quoted identifiers as case-sensitive. `[Customers]` becomes `"Customers"`, which does not match a table created as `customers`.
 

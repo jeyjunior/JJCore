@@ -43,6 +43,9 @@ namespace JJCore.Infra.Data.Data
         {
             ThrowIfDisposed();
 
+            // Some providers return an idle pooled connection without checking the token.
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_connection.State != ConnectionState.Open)
             {
                 await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -70,10 +73,12 @@ namespace JJCore.Infra.Data.Data
             EnsureNoOpenTransaction();
             await OpenAsync(cancellationToken).ConfigureAwait(false);
 
+            // Some providers start the transaction without checking the token.
+            cancellationToken.ThrowIfCancellationRequested();
+
 #if NET8_0_OR_GREATER
             _transaction = await _connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 #else
-            cancellationToken.ThrowIfCancellationRequested();
             _transaction = _connection.BeginTransaction();
 #endif
         }
