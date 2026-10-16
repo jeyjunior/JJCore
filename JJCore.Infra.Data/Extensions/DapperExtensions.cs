@@ -301,6 +301,12 @@ namespace JJCore.Infra.Data.Extensions
         /// </summary>
         public static async Task<int> AddAsync<T>(this IDbConnection connection, T entity, IDbTransaction? transaction, CancellationToken cancellationToken)
         {
+            if (entity != null)
+            {
+                EnsureSupportedDatabase(connection, transaction);
+                EnsureKeyCanBeReturnedAsInt(entity, GetMapping(typeof(T)));
+            }
+
             object? result = await connection.AddReturningAsync(entity, transaction, cancellationToken).ConfigureAwait(false);
 
             try
@@ -375,7 +381,7 @@ namespace JJCore.Infra.Data.Extensions
                     "Use [PrimaryKey(DatabaseGenerated = false)] when the application assigns the key value.");
             }
 
-            return result;
+            return ConvertGeneratedKey(result, mapping);
         }
 
         /// <summary>
@@ -687,7 +693,9 @@ namespace JJCore.Infra.Data.Extensions
 
             if (databaseType == DatabaseType.None)
             {
-                throw new NotSupportedException($"Connection type {connection.GetType().Name} is not supported.");
+                throw new NotSupportedException(
+                    $"Connection type {connection.GetType().Name} is not supported. For a wrapped connection or another driver, " +
+                    "register its database with ConnectionFactory.RegisterDatabaseResolver.");
             }
 
             if (databaseType == DatabaseType.SQLite)
@@ -872,6 +880,73 @@ namespace JJCore.Infra.Data.Extensions
             }
 
             return value;
+        }
+
+        // AddAsync returns the key as int. Rejects, before the INSERT, an assigned key that does not fit in int and a generated
+        // key whose type never converts to int. A generated numeric or string key is only known after the INSERT.
+        private static void EnsureKeyCanBeReturnedAsInt<T>(T entity, EntityMapping mapping)
+        {
+            Type keyType = Nullable.GetUnderlyingType(mapping.PrimaryKey.Property.PropertyType) ?? mapping.PrimaryKey.Property.PropertyType;
+            bool fitsInInt;
+
+            if (mapping.IsPrimaryKeyDatabaseGenerated)
+            {
+                fitsInInt = keyType != typeof(Guid) && keyType != typeof(DateTime) && keyType != typeof(DateTimeOffset) &&
+                            keyType != typeof(TimeSpan) && keyType != typeof(byte[]);
+            }
+            else
+            {
+                object value = GetAssignedPrimaryKey(entity, mapping);
+
+                try
+                {
+                    Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                    fitsInInt = true;
+                }
+                catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+                {
+                    fitsInInt = false;
+                }
+            }
+
+            if (!fitsInInt)
+            {
+                throw new InvalidOperationException(
+                    $"AddAsync returns the key as int, and the {keyType.Name} key of {mapping.Type.Name} cannot be converted to int. " +
+                    "Nothing was inserted. Use AddReturningAsync to read the key, or AddBatchAsync to insert without reading it.");
+            }
+        }
+
+        // Converts the key returned by the database, such as UInt64 from MySQL or Int64 from SQLite, to the key property type.
+        private static object ConvertGeneratedKey(object result, EntityMapping mapping)
+        {
+            Type keyType = Nullable.GetUnderlyingType(mapping.PrimaryKey.Property.PropertyType) ?? mapping.PrimaryKey.Property.PropertyType;
+
+            if (keyType == typeof(object) || keyType.IsInstanceOfType(result))
+            {
+                return result;
+            }
+
+            try
+            {
+                if (keyType.IsEnum)
+                {
+                    return Enum.ToObject(keyType, Convert.ChangeType(result, Enum.GetUnderlyingType(keyType), CultureInfo.InvariantCulture));
+                }
+
+                if (keyType == typeof(Guid))
+                {
+                    return Guid.Parse(Convert.ToString(result, CultureInfo.InvariantCulture)!);
+                }
+
+                return Convert.ChangeType(result, keyType, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException or ArgumentException)
+            {
+                throw new InvalidOperationException(
+                    $"The database returned the key {result} ({result.GetType().Name}) for {mapping.Type.Name}, which cannot be converted to " +
+                    $"{keyType.Name}. The INSERT was executed, so the row may have been saved.", ex);
+            }
         }
 
         private static string GetSqlServerIdentityType(Type keyType)

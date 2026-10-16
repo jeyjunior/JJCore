@@ -111,7 +111,10 @@ namespace JJCore.Domain.Extensions
         /// <param name="instance">The target object.</param>
         /// <param name="propertyName">The property name.</param>
         /// <param name="value">The value to assign.</param>
-        /// <returns>True when the value is assigned; otherwise, false.</returns>
+        /// <returns>
+        /// True when the value is assigned; otherwise, false. Null or DBNull for a non-nullable value type, such as int,
+        /// returns false and keeps the current value.
+        /// </returns>
         public static bool SetPropertyValue(this object? instance, string propertyName, object? value)
         {
             if (instance == null || string.IsNullOrWhiteSpace(propertyName))
@@ -121,6 +124,14 @@ namespace JJCore.Domain.Extensions
 
             PropertyInfo? property = instance.GetType().GetProperty(propertyName);
             if (property == null || !property.CanWrite)
+            {
+                return false;
+            }
+
+            // Null cannot be stored in a non-nullable value type; SetValue would store the default value instead.
+            if ((value == null || value == DBNull.Value) &&
+                property.PropertyType.IsValueType &&
+                Nullable.GetUnderlyingType(property.PropertyType) == null)
             {
                 return false;
             }

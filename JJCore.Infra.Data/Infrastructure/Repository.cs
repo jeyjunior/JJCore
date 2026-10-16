@@ -10,7 +10,7 @@ namespace JJCore.Infra.Data.Infrastructure
     /// Base repository implementation that delegates generic CRUD operations to JJCore Dapper extensions.
     /// </summary>
     /// <typeparam name="TEntity">The mapped entity type.</typeparam>
-    public abstract class Repository<TEntity> : ICancellableRepository<TEntity> where TEntity : class
+    public abstract class Repository<TEntity> : IExtendedRepository<TEntity> where TEntity : class
     {
         /// <summary>
         /// Gets the unit of work used by this repository.

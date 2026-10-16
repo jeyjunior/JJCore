@@ -41,9 +41,43 @@ namespace JJCore.Infra.Data.Factory
             };
         }
 
+        /// <summary>
+        /// Registers a function that identifies the database of connection types JJCore does not recognize, such as
+        /// connections wrapped by a profiler or connections from another ADO.NET driver.
+        /// </summary>
+        /// <remarks>
+        /// JJCore recognizes Microsoft.Data.SqlClient, Microsoft.Data.Sqlite, Npgsql, and MySqlConnector connections. The
+        /// resolvers are called only for other connection types, in the order they were registered, until one returns a
+        /// value other than <see cref="DatabaseType.None"/>. Registration applies to the whole process. For a wrapped
+        /// connection, return the database of the inner connection, for example
+        /// <c>c =&gt; c is ProfiledDbConnection p ? p.WrappedConnection.IdentifyDatabase() : DatabaseType.None</c>.
+        /// Drivers other than the four above, such as MySql.Data or System.Data.SqlClient, are not tested by JJCore.
+        /// </remarks>
+        /// <param name="resolver">
+        /// Returns the database of the connection, or <see cref="DatabaseType.None"/> when the connection is not handled.
+        /// </param>
+        public static void RegisterDatabaseResolver(Func<IDbConnection, DatabaseType> resolver)
+        {
+            if (resolver == null)
+            {
+                throw new ArgumentNullException(nameof(resolver));
+            }
+
+            lock (ResolversLock)
+            {
+                var resolvers = new Func<IDbConnection, DatabaseType>[DatabaseResolvers.Length + 1];
+                DatabaseResolvers.CopyTo(resolvers, 0);
+                resolvers[resolvers.Length - 1] = resolver;
+                DatabaseResolvers = resolvers;
+            }
+        }
+
+        private static readonly object ResolversLock = new();
+        private static volatile Func<IDbConnection, DatabaseType>[] DatabaseResolvers = Array.Empty<Func<IDbConnection, DatabaseType>>();
+
         internal static DatabaseType IdentifyDatabase(IDbConnection connection)
         {
-            return connection.GetType().FullName switch
+            var databaseType = connection.GetType().FullName switch
             {
                 "Microsoft.Data.SqlClient.SqlConnection" => DatabaseType.SQLServer,
                 "Microsoft.Data.Sqlite.SqliteConnection" => DatabaseType.SQLite,
@@ -51,6 +85,23 @@ namespace JJCore.Infra.Data.Factory
                 "MySqlConnector.MySqlConnection" => DatabaseType.MySQL,
                 _ => DatabaseType.None
             };
+
+            if (databaseType != DatabaseType.None)
+            {
+                return databaseType;
+            }
+
+            foreach (var resolver in DatabaseResolvers)
+            {
+                databaseType = resolver(connection);
+
+                if (databaseType != DatabaseType.None)
+                {
+                    return databaseType;
+                }
+            }
+
+            return DatabaseType.None;
         }
 
         /// <summary>

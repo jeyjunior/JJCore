@@ -13,10 +13,14 @@ namespace JJCore.Infra.Data.Translators
         /// </summary>
         /// <remarks>
         /// SQL Server and SQLite queries are returned unchanged. For PostgreSQL and MySQL, brackets inside string literals,
-        /// quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. In PostgreSQL, a bracket that
-        /// directly follows an identifier, a closing parenthesis, or another bracket is treated as an array subscript, such
-        /// as ARRAY[1, 2] or items[1], and is also preserved. MySQL has no arrays, so brackets are translated after any
-        /// character, as in WHERE[Id], and inside executable comments, such as /*!80000 ... */.
+        /// quoted identifiers, comments, and PostgreSQL dollar-quoted strings are preserved. In PostgreSQL, these brackets
+        /// are treated as array syntax and also preserved: a bracket that directly follows a name, a closing parenthesis, or
+        /// another bracket, such as items[1] or ARRAY[[1, 2]]; a bracket after the ARRAY keyword, with or without spaces,
+        /// such as ARRAY [name]; and an element of an array whose first element is a nested array, such as
+        /// ARRAY[[a], [b]]. A bracket that directly follows a reserved keyword, as in WHERE[Id], is an identifier. A bracket
+        /// after a space and a name, such as tags [i], is an identifier, because it cannot be told apart from an alias,
+        /// such as FROM Customers [c]; use RawSql for such subscripts. MySQL has no arrays, so brackets are translated after
+        /// any character, as in WHERE[Id], and inside executable comments, such as /*!80000 ... */.
         /// </remarks>
         /// <param name="query">The SQL query to translate.</param>
         /// <param name="databaseType">The target database provider.</param>
@@ -37,18 +41,40 @@ namespace JJCore.Infra.Data.Translators
             };
         }
 
+        // PostgreSQL reserved keywords, which cannot be column names without quotes. ARRAY is left out because a bracket
+        // after it starts an array constructor.
+        private static readonly HashSet<string> PostgreSqlReservedKeywords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "ALL", "ANALYSE", "ANALYZE", "AND", "ANY", "AS", "ASC", "ASYMMETRIC", "AUTHORIZATION", "BINARY", "BOTH",
+            "CASE", "CAST", "CHECK", "COLLATE", "COLLATION", "COLUMN", "CONCURRENTLY", "CONSTRAINT", "CREATE", "CROSS",
+            "CURRENT_CATALOG", "CURRENT_DATE", "CURRENT_ROLE", "CURRENT_SCHEMA", "CURRENT_TIME", "CURRENT_TIMESTAMP",
+            "CURRENT_USER", "DEFAULT", "DEFERRABLE", "DESC", "DISTINCT", "DO", "ELSE", "END", "EXCEPT", "FALSE", "FETCH",
+            "FOR", "FOREIGN", "FREEZE", "FROM", "FULL", "GRANT", "GROUP", "HAVING", "ILIKE", "IN", "INITIALLY", "INNER",
+            "INTERSECT", "INTO", "IS", "ISNULL", "JOIN", "LATERAL", "LEADING", "LEFT", "LIKE", "LIMIT", "LOCALTIME",
+            "LOCALTIMESTAMP", "NATURAL", "NOT", "NOTNULL", "NULL", "OFFSET", "ON", "ONLY", "OR", "ORDER", "OUTER",
+            "OVERLAPS", "PLACING", "PRIMARY", "REFERENCES", "RETURNING", "RIGHT", "SELECT", "SESSION_USER", "SIMILAR",
+            "SOME", "SYMMETRIC", "SYSTEM_USER", "TABLE", "TABLESAMPLE", "THEN", "TO", "TRAILING", "TRUE", "UNION",
+            "UNIQUE", "USER", "USING", "VARIADIC", "VERBOSE", "WHEN", "WHERE", "WINDOW", "WITH"
+        };
+
         private static string TranslateIdentifiers(string query, char quote, bool isMySql)
         {
             var builder = new StringBuilder(query.Length);
+            var openGroups = new Stack<BracketGroup>();
             int index = 0;
 
             while (index < query.Length)
             {
-                if (query[index] == '[' && TryFindBracketIdentifierEnd(query, index, isMySql, out int closeIndex))
+                if (query[index] == '[' && TryFindBracketIdentifierEnd(query, index, isMySql, openGroups, out int closeIndex))
                 {
                     builder.Append(quote).Append(query, index + 1, closeIndex - index - 1).Append(quote);
                     index = closeIndex + 1;
                     continue;
+                }
+
+                if (!isMySql)
+                {
+                    TrackGroup(query, index, openGroups);
                 }
 
                 int segmentEnd = GetSegmentEnd(query, index, isMySql);
@@ -117,12 +143,12 @@ namespace JJCore.Infra.Data.Translators
             return index + 1;
         }
 
-        private static bool TryFindBracketIdentifierEnd(string query, int openIndex, bool isMySql, out int closeIndex)
+        private static bool TryFindBracketIdentifierEnd(string query, int openIndex, bool isMySql, Stack<BracketGroup> openGroups, out int closeIndex)
         {
             closeIndex = -1;
 
-            // Array subscripts exist only in PostgreSQL; in MySQL a bracket outside literals is never valid syntax.
-            if (!isMySql && openIndex > 0 && IsSubscriptPrefix(query[openIndex - 1]))
+            // Array syntax exists only in PostgreSQL; in MySQL a bracket outside literals is never valid syntax.
+            if (!isMySql && IsPostgreSqlArrayBracket(query, openIndex, openGroups))
             {
                 return false;
             }
@@ -153,9 +179,102 @@ namespace JJCore.Infra.Data.Translators
             return hasNameCharacter;
         }
 
-        private static bool IsSubscriptPrefix(char value)
+        // Tracks the parentheses and the brackets kept as array syntax, so that a comma can be matched to its group.
+        private static void TrackGroup(string query, int index, Stack<BracketGroup> openGroups)
         {
-            return char.IsLetterOrDigit(value) || value is '_' or ')' or ']' or '[' or '"' or '`';
+            switch (query[index])
+            {
+                case '[':
+                    bool startsNestedArray = index + 1 < query.Length && query[index + 1] == '[';
+                    openGroups.Push(startsNestedArray ? BracketGroup.NestedArray : BracketGroup.Array);
+                    break;
+                case '(':
+                    openGroups.Push(BracketGroup.Parenthesis);
+                    break;
+                case ']':
+                    if (openGroups.Count > 0 && openGroups.Peek() != BracketGroup.Parenthesis)
+                    {
+                        openGroups.Pop();
+                    }
+
+                    break;
+                case ')':
+                    if (openGroups.Count > 0 && openGroups.Peek() == BracketGroup.Parenthesis)
+                    {
+                        openGroups.Pop();
+                    }
+
+                    break;
+            }
+        }
+
+        private static bool IsPostgreSqlArrayBracket(string query, int openIndex, Stack<BracketGroup> openGroups)
+        {
+            if (openIndex == 0)
+            {
+                return false;
+            }
+
+            char previous = query[openIndex - 1];
+
+            if (previous is ')' or ']' or '[' or '"' or '`')
+            {
+                return true;
+            }
+
+            if (char.IsLetterOrDigit(previous) || previous == '_')
+            {
+                // A name directly followed by a bracket is a subscript, such as tags[1]; a reserved keyword is not, as in WHERE[Id].
+                string word = GetWordBefore(query, openIndex);
+                return word.Length == 0 || !PostgreSqlReservedKeywords.Contains(word);
+            }
+
+            int previousIndex = openIndex - 1;
+
+            while (previousIndex >= 0 && char.IsWhiteSpace(query[previousIndex]))
+            {
+                previousIndex--;
+            }
+
+            if (previousIndex < 0)
+            {
+                return false;
+            }
+
+            if (query[previousIndex] == ',')
+            {
+                // An element of a nested array, such as [b] in ARRAY[[a], [b]].
+                return openGroups.Count > 0 && openGroups.Peek() == BracketGroup.NestedArray;
+            }
+
+            // After spaces, only the ARRAY keyword makes the bracket an array; a name could be followed by an alias.
+            return previousIndex < openIndex - 1 &&
+                   string.Equals(GetWordBefore(query, previousIndex + 1), "ARRAY", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Returns the unqualified word that ends right before index, or an empty string when there is none.
+        private static string GetWordBefore(string query, int index)
+        {
+            int start = index;
+
+            while (start > 0 && IsIdentifierCharacter(query[start - 1]))
+            {
+                start--;
+            }
+
+            if (start == index || char.IsDigit(query[start]) || (start > 0 && query[start - 1] is '.' or '"'))
+            {
+                return string.Empty;
+            }
+
+            return query.Substring(start, index - start);
+        }
+
+        private enum BracketGroup
+        {
+            Parenthesis,
+            Array,
+            NestedArray
         }
 
         private static bool IsEscapeStringPrefix(string query, int quoteIndex)
